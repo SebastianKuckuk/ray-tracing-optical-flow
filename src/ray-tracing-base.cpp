@@ -11,7 +11,7 @@
 
 #include "ray-tracing-util.h"
 #include "intersect.h"
-#include "conjugate-gradient-base.h"
+#include "optical-flow-base.h"
 #include "multigrid-base.h"
 
 
@@ -154,22 +154,6 @@ int main(int argc, char *argv[]) {
     auto img0 = new double[nxOF * nyOF];
     auto img1 = new double[nxOF * nyOF];
 
-    auto ixix = new double[nxOF * nyOF];
-    auto ixiy = new double[nxOF * nyOF];
-    auto iyiy = new double[nxOF * nyOF];
-
-    auto u = new double[nxOF * nyOF];
-    auto v = new double[nxOF * nyOF];
-    auto uRHS = new double[nxOF * nyOF];
-    auto vRHS = new double[nxOF * nyOF];
-    auto uRes = new double[nxOF * nyOF];
-    auto vRes = new double[nxOF * nyOF];
-
-    auto uP = new double[nxOF * nyOF];
-    auto vP = new double[nxOF * nyOF];
-    auto uAP = new double[nxOF * nyOF];
-    auto vAP = new double[nxOF * nyOF];
-
     // multigrid
     auto numLevels = 10;
     auto mgSolU = new double *[numLevels];
@@ -208,8 +192,8 @@ int main(int argc, char *argv[]) {
     }
 
     // init
-    memset(u, 0, nxOF * nxOF * sizeof(double));
-    memset(v, 0, nxOF * nxOF * sizeof(double));
+    memset(mgSolU[numLevels - 1], 0, nxOF * nxOF * sizeof(double));
+    memset(mgSolV[numLevels - 1], 0, nxOF * nxOF * sizeof(double));
 
     auto t = 0.0;
 
@@ -281,29 +265,15 @@ int main(int argc, char *argv[]) {
         auto startOF = std::chrono::steady_clock::now();
 
         if (t > 0) {
-            size_t nIt = 0;
-            auto maxIt = 1024;
-            applyBC(nxOF, nyOF, u, v);
-            initGradientsAndRHS(nxOF, nyOF, img0, img1, ixix, ixiy, iyiy, uRHS, vRHS);
-//            for (; nIt < maxIt;)
+            initGradientsAndRHS(nxOF, nyOF, img0, img1, mgIxIx[numLevels - 1], mgIxIy[numLevels - 1], mgIyIy[numLevels - 1], mgRhsU[numLevels - 1], mgRhsV[numLevels - 1]);
+            for (auto level = numLevels - 1; level >= 1; --level)
+                coarsenOperator((1u << (level - 1)) + 2, (1u << (level - 1)) + 2, (1u << level) + 2, (1u << level) + 2,
+                                mgIxIx[level], mgIxIy[level], mgIyIy[level], mgIxIx[level - 1], mgIxIy[level - 1], mgIyIy[level - 1]);
 
-//            nIt += cg(nxOF, nyOF, maxIt, u, v, uRes, vRes, uP, vP, uAP, vAP, ixix, ixiy, iyiy, uRHS, vRHS);
-
-            memcpy(mgSolU[numLevels - 1], u, nxOF * nyOF * sizeof(double));
-            memcpy(mgSolV[numLevels - 1], v, nxOF * nyOF * sizeof(double));
-            memcpy(mgRhsU[numLevels - 1], uRHS, nxOF * nyOF * sizeof(double));
-            memcpy(mgRhsV[numLevels - 1], vRHS, nxOF * nyOF * sizeof(double));
-            memcpy(mgIxIx[numLevels - 1], ixix, nxOF * nyOF * sizeof(double));
-            memcpy(mgIxIy[numLevels - 1], ixiy, nxOF * nyOF * sizeof(double));
-            memcpy(mgIyIy[numLevels - 1], iyiy, nxOF * nyOF * sizeof(double));
             for (auto mgIt = 0; mgIt < 10; ++mgIt)
                 multigrid(numLevels - 1, 2. / 3., mgRhsU, mgRhsV, mgSolU, mgSolV, mgSolNewU, mgSolNewV, mgResU, mgResV, mgIxIx, mgIxIy, mgIyIy);
-            memcpy(u, mgSolU[numLevels - 1], nxOF * nyOF * sizeof(double));
-            memcpy(v, mgSolV[numLevels - 1], nxOF * nyOF * sizeof(double));
 
-//            nIt += cg(nxOF, nyOF, maxIt, u, v, uRes, vRes, uP, vP, uAP, vAP, ixix, ixiy, iyiy, uRHS, vRHS);
-
-            std::cout << "CG steps: " << nIt << std::endl;
+            // TODO: print res
         }
 
         auto endOF = std::chrono::steady_clock::now();
@@ -329,8 +299,8 @@ int main(int argc, char *argv[]) {
         for (size_t j = 0; j < nyOF; ++j)
             for (size_t i = 0; i < nxOF; ++i)
                 for (auto dim = 0; dim < 3; ++dim)
-                    *imgShowOF.data(i, j, dim, 0) = std::sqrt(u[j * nxOF + i] * u[j * nxOF + i] + v[j * nxOF + i] * v[j * nxOF + i]);
-        //                    *imgShowOF.data(i, j, dim, 0) = std::sqrt(uRes[j * nxOF + i] * uRes[j * nxOF + i] + vRes[j * nxOF + i] * vRes[j * nxOF + i]);
+                    *imgShowOF.data(i, j, dim, 0) = std::sqrt(mgSolU[numLevels - 1][j * nxOF + i] * mgSolU[numLevels - 1][j * nxOF + i]
+                                                              + mgSolV[numLevels - 1][j * nxOF + i] * mgSolV[numLevels - 1][j * nxOF + i]);
 
         imgShowRT.mirror('y');
         imgShowOF.mirror('y');
@@ -373,21 +343,13 @@ int main(int argc, char *argv[]) {
     delete[] img0;
     delete[] img1;
 
-    delete[] ixix;
-    delete[] ixiy;
-    delete[] iyiy;
-
-    delete[] u;
-    delete[] v;
-    delete[] uRHS;
-    delete[] vRHS;
-    delete[] uRes;
-    delete[] vRes;
-
-    delete[] uP;
-    delete[] vP;
-    delete[] uAP;
-    delete[] vAP;
+    for (auto ptr: {mgSolU, mgSolV, mgSolNewU, mgSolNewV,
+                    mgResU, mgResV, mgRhsU, mgRhsV, mgIxIx,
+                    mgIxIy, mgIyIy}) {
+        for (auto level = 0; level < numLevels; ++level)
+            delete[] ptr[level];
+        delete[] ptr;
+    }
 
     // de-allocate ray tracer
     delete[] img;

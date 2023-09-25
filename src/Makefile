@@ -41,7 +41,7 @@ mk-target-dir:
 
 # build rules
 
-$(BUILD_DIR)/$(TEST_CASE)-base: $(TEST_CASE)-base.cpp $(TEST_CASE)-util.h vec3.h intersect.h conjugate-gradient-base.h multigrid-base.h
+$(BUILD_DIR)/$(TEST_CASE)-base: $(TEST_CASE)-base.cpp $(TEST_CASE)-util.h vec3.h intersect.h optical-flow-base.h multigrid-base.h
 	g++ -O3 -march=native -std=c++17 -o $(BUILD_DIR)/$(TEST_CASE)-base $(TEST_CASE)-base.cpp  -lm -lpthread -lX11 -ljpeg -lpng
 
 $(BUILD_DIR)/$(TEST_CASE)-omp-host: $(TEST_CASE)-omp-host.cpp $(TEST_CASE)-util.h ../util.h

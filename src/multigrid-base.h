@@ -59,6 +59,7 @@ inline void updateRes(size_t nx, size_t ny,
         std::cout << '\t' << sqrt(res) << std::endl;
 }
 
+
 inline void updateCoarserRhs(size_t nxCoarser, size_t nyCoarser, size_t nx, size_t ny,
                              const double *__restrict__ resU, const double *__restrict__ resV,
                              double *__restrict__ rhsUCoarser, double *__restrict__ rhsVCoarser) {
@@ -178,7 +179,6 @@ inline void correction(size_t nx, size_t ny, size_t nxCoarser, size_t nyCoarser,
 
     // update coarser rhs
     updateCoarserRhs(nxCoarser, nyCoarser, nx, ny, resU[level], resV[level], rhsU[level - 1], rhsV[level - 1]);
-    coarsenOperator(nxCoarser, nyCoarser, nx, ny, ixix[level], ixiy[level], iyiy[level], ixix[level - 1], ixiy[level - 1], iyiy[level - 1]);
 
     // set coarser solution to zero
     memset(solU[level - 1], 0, nxCoarser * nyCoarser * sizeof(double));
