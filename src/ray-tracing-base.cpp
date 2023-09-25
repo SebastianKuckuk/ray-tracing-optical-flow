@@ -265,15 +265,27 @@ int main(int argc, char *argv[]) {
         auto startOF = std::chrono::steady_clock::now();
 
         if (t > 0) {
+            constexpr auto numMGSteps = 10;
+
             initGradientsAndRHS(nxOF, nyOF, img0, img1, mgIxIx[numLevels - 1], mgIxIy[numLevels - 1], mgIyIy[numLevels - 1], mgRhsU[numLevels - 1], mgRhsV[numLevels - 1]);
             for (auto level = numLevels - 1; level >= 1; --level)
                 coarsenOperator((1u << (level - 1)) + 2, (1u << (level - 1)) + 2, (1u << level) + 2, (1u << level) + 2,
                                 mgIxIx[level], mgIxIy[level], mgIyIy[level], mgIxIx[level - 1], mgIxIy[level - 1], mgIyIy[level - 1]);
 
-            for (auto mgIt = 0; mgIt < 10; ++mgIt)
+            auto initRes = resNorm(nxOF, nyOF,
+                                   mgSolU[numLevels - 1], mgSolV[numLevels - 1],
+                                   mgIxIx[numLevels - 1], mgIxIy[numLevels - 1], mgIyIy[numLevels - 1],
+                                   mgRhsU[numLevels - 1], mgRhsV[numLevels - 1]);
+            std::cout << "Initial residual : " << initRes << std::endl;
+
+            for (auto mgIt = 0; mgIt < numMGSteps; ++mgIt)
                 multigrid(numLevels - 1, 2. / 3., mgRhsU, mgRhsV, mgSolU, mgSolV, mgSolNewU, mgSolNewV, mgResU, mgResV, mgIxIx, mgIxIy, mgIyIy);
 
-            // TODO: print res
+            auto res = resNorm(nxOF, nyOF,
+                               mgSolU[numLevels - 1], mgSolV[numLevels - 1],
+                               mgIxIx[numLevels - 1], mgIxIy[numLevels - 1], mgIyIy[numLevels - 1],
+                               mgRhsU[numLevels - 1], mgRhsV[numLevels - 1]);
+            std::cout << "Residual after " << numMGSteps << " : " << res << std::endl;
         }
 
         auto endOF = std::chrono::steady_clock::now();

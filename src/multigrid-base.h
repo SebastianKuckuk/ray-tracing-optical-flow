@@ -35,8 +35,6 @@ inline void updateRes(size_t nx, size_t ny,
 
     auto gridWidthSqInv = ((nx - 2.) * (nx - 2.));
 
-    auto res = 0.;
-
     for (size_t j = 1; j < ny - 1; ++j) {
         for (size_t i = 1; i < nx - 1; ++i) {
             uRes[j * nx + i] = uRHS[j * nx + i] - (
@@ -50,13 +48,39 @@ inline void updateRes(size_t nx, size_t ny,
                     + iyiy[j * nx + i] * v[j * nx + i]
                     + regularization * gridWidthSqInv *
                       (4 * v[j * nx + i] - (v[j * nx + i - 1] + v[j * nx + i + 1] + v[(j - 1) * nx + i] + v[(j + 1) * nx + i])));
+        }
+    }
+}
 
-            res += uRes[j * nx + i] * uRes[j * nx + i] + vRes[j * nx + i] * vRes[j * nx + i];
+
+inline double resNorm(size_t nx, size_t ny,
+                      const double *const __restrict__ u, const double *const __restrict__ v,
+                      const double *const __restrict__ ixix, const double *const __restrict__ ixiy, const double *const __restrict__ iyiy,
+                      const double *const __restrict__ uRHS, const double *const __restrict__ vRHS) {
+
+    auto gridWidthSqInv = ((nx - 2.) * (nx - 2.));
+
+    auto res = 0.;
+
+    for (size_t j = 1; j < ny - 1; ++j) {
+        for (size_t i = 1; i < nx - 1; ++i) {
+            auto uRes = uRHS[j * nx + i] - (
+                    ixix[j * nx + i] * u[j * nx + i]
+                    + ixiy[j * nx + i] * v[j * nx + i]
+                    + regularization * gridWidthSqInv *
+                      (4 * u[j * nx + i] - (u[j * nx + i - 1] + u[j * nx + i + 1] + u[(j - 1) * nx + i] + u[(j + 1) * nx + i])));
+
+            auto vRes = vRHS[j * nx + i] - (
+                    ixiy[j * nx + i] * u[j * nx + i]
+                    + iyiy[j * nx + i] * v[j * nx + i]
+                    + regularization * gridWidthSqInv *
+                      (4 * v[j * nx + i] - (v[j * nx + i - 1] + v[j * nx + i + 1] + v[(j - 1) * nx + i] + v[(j + 1) * nx + i])));
+
+            res += uRes * uRes + vRes * vRes;
         }
     }
 
-    if (514 == nx)
-        std::cout << '\t' << sqrt(res) << std::endl;
+    return sqrt(res);
 }
 
 
