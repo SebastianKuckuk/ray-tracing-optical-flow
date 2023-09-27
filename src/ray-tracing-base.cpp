@@ -67,59 +67,25 @@ inline void createImage(size_t nx, size_t ny, double t, unsigned char *__restric
 #pragma omp parallel for
     for (size_t j = 0; j < ny; ++j) {
         for (size_t i = 0; i < nx; ++i) {
-//            auto x = (double) i / (double) (nx - 1);
-//            auto y = 1. - (double) j / (double) (ny - 1);
-//
-//            auto direction = Vec3{-0.847569 - x * 1.30741 - y * 1.19745, -1.98535 + x * 2.11197 - y * 0.741279, -2.72303 + y * 2.04606};
-//
-//            Ray ray{{2.1, 1.3, 1.7}, direction.normalize()};
-//            Color color = trace(ray, 0);
-
-            auto x = (i + 0.5) / nx;
-            auto y = (j + 0.5) / nx;
-
+            // compute screen coordinates
             auto fov = 90;
             auto scale = tan(fov * 0.5 * M_PI / 180);
             auto imageAspectRatio = nx / (double) ny;
 
-            double alpha = t * 2. * M_PI, beta = 0., gamma = -0.25 * M_PI;
-            double rot[3][3] = {
-                    {
-                            cos(alpha) * cos(beta),
-                            cos(alpha) * sin(beta) * sin(gamma) - sin(alpha) * cos(gamma),
-                            cos(alpha) * sin(beta) * cos(gamma) + sin(alpha) * sin(gamma)
-                    },
-                    {
-                            sin(alpha) * cos(beta),
-                            sin(alpha) * sin(beta) * sin(gamma) + cos(alpha) * cos(gamma),
-                            sin(alpha) * sin(beta) * cos(gamma) - cos(alpha) * sin(gamma)
-                    },
-                    {
-                            -sin(beta),
-                            cos(beta) * sin(gamma),
-                            cos(beta) * cos(gamma)
-                    }
-            };
-
-            auto origin = Vec3{0., 0., 2.}; // TODO: camMat * vec
+            auto origin = Vec3{0., 0., 2.};
 //            auto origin = Vec3{2.1, 1.3, 1.7};
 
             auto px = (2 * (i + 0.5) / nx - 1) * scale * imageAspectRatio;
             auto py = (1 - 2 * (j + 0.5) / ny) * scale;
-            auto direction = Vec3{px, py, -1};// - origin;// TODO: camMat * vec
+            auto direction = Vec3{px, py, -1};
 
-            origin = Vec3{
-                    rot[0][0] * origin.x + rot[0][1] * origin.y + rot[0][2] * origin.z,
-                    rot[1][0] * origin.x + rot[1][1] * origin.y + rot[1][2] * origin.z,
-                    rot[2][0] * origin.x + rot[2][1] * origin.y + rot[2][2] * origin.z
-            };
+            // rotate camera
+            double alpha = t * 2. * M_PI, beta = 0., gamma = -0.25 * M_PI;
 
-            direction = Vec3{
-                    rot[0][0] * direction.x + rot[0][1] * direction.y + rot[0][2] * direction.z,
-                    rot[1][0] * direction.x + rot[1][1] * direction.y + rot[1][2] * direction.z,
-                    rot[2][0] * direction.x + rot[2][1] * direction.y + rot[2][2] * direction.z
-            };
+            origin = origin.rotate(alpha, beta, gamma);
+            direction = direction.rotate(alpha, beta, gamma);
 
+            // create and trace ray for current pixel
             Ray ray{origin, direction.normalize()};
             Color color = trace(ray, 0);
 
@@ -141,11 +107,14 @@ inline void createImage(size_t nx, size_t ny, double t, unsigned char *__restric
 
 
 int main(int argc, char *argv[]) {
-    size_t nxOF, nyOF, nItWarmUp, nIt;
-    parseCLA_2d(argc, argv, nxOF, nyOF, nItWarmUp, nIt);
+    size_t numLevels, supersampling, mgIterations;
+    double dt, maxTime;
+    parseCLA(argc, argv, numLevels, supersampling, mgIterations, dt, maxTime);
 
-    auto nxRT = 2 * nxOF;
-    auto nyRT = 2 * nyOF;
+    size_t nxOF = (1u << (numLevels - 1)) + 2;
+    size_t nyOF = (1u << (numLevels - 1)) + 2;
+    auto nxRT = supersampling * nxOF;
+    auto nyRT = supersampling * nyOF;
 
     // allocate for ray tracer
     auto img = new unsigned char[nxRT * nyRT * sizeof(Color) / sizeof(double)];
@@ -154,8 +123,6 @@ int main(int argc, char *argv[]) {
     auto img0 = new double[nxOF * nyOF];
     auto img1 = new double[nxOF * nyOF];
 
-    // multigrid
-    auto numLevels = 10;
     auto mgSolU = new double *[numLevels];
     auto mgSolV = new double *[numLevels];
     auto mgSolNewU = new double *[numLevels];
@@ -172,101 +139,69 @@ int main(int argc, char *argv[]) {
         auto nx = (1u << level) + 2;
         auto ny = (1u << level) + 2;
 
-        mgSolU[level] = new double[nx * ny];
-        mgSolV[level] = new double[nx * ny];
-        mgSolNewU[level] = new double[nx * ny];
-        mgSolNewV[level] = new double[nx * ny];
-        mgResU[level] = new double[nx * ny];
-        mgResV[level] = new double[nx * ny];
-        mgRhsU[level] = new double[nx * ny];
-        mgRhsV[level] = new double[nx * ny];
-
-        mgIxIx[level] = new double[nx * ny];
-        mgIxIy[level] = new double[nx * ny];
-        mgIyIy[level] = new double[nx * ny];
-
-        for (auto ptr: {mgSolU[level], mgSolV[level], mgSolNewU[level], mgSolNewV[level],
-                        mgResU[level], mgResV[level], mgRhsU[level], mgRhsV[level],
-                        mgIxIx[level], mgIxIy[level], mgIyIy[level]})
-            memset(ptr, 0, nx * ny);
+        for (auto ptr: {mgSolU, mgSolV, mgSolNewU, mgSolNewV, mgResU, mgResV, mgRhsU, mgRhsV, mgIxIx, mgIxIy, mgIyIy}) {
+            ptr[level] = new double[nx * ny];
+            memset(ptr[level], 0, nx * ny);
+        }
     }
-
-    // init
-    memset(mgSolU[numLevels - 1], 0, nxOF * nxOF * sizeof(double));
-    memset(mgSolV[numLevels - 1], 0, nxOF * nxOF * sizeof(double));
 
     auto t = 0.0;
 
-    // init
-    numSpheres = 2 + 20;
+    // init spheres
+    numSpheres = 1 + 1 + 20; // one large bottom sphere, one center sphere and multiple orbiting spheres
     spheres = static_cast<Sphere *>(malloc(numSpheres * sizeof(Sphere)));
     spheres[0] = {{0., 0., -130.}, 128 * 128., Color{0.8}, Color{0.2}, 16, Color{0.8}};
     spheres[1] = {{0., 0., 0.}, 0.5 * 0.5, Color{0.8}, Color{0.2}, 8, Color{0.2}};
+    // remaining spheres will be initialized in the time loop since they are moving
 
 #ifdef USE_CIMG
-    for (; t <= 1000; t += 1.e-2) {
+    for (; t <= maxTime; t += dt) {
 #else
-        for (; t <= 1e-3; t += 1e-3) {
+        for (; t <= dt; t += dt) {
 #endif
         for (auto i = 2; i < numSpheres; ++i) {
-//        auto scale = 2. * M_PI / (numSpheres - 2);
-//        auto pos = Vec3{cos(t + scale * (i - 2)),
-//                        sin(t + scale * (i - 2)) * cos(0.1 * M_PI),
-//                        sin(t + scale * (i - 2)) * sin(0.1 * M_PI)};
+            auto r = 1. / 8.;
 
-            auto alpha = (t + (double) (i - 2) / (numSpheres - 2)) * 2. * M_PI;
-            auto beta = (i - 2 >= (numSpheres - 2) / 2 ? -0.125 : 0.125) * 2. * M_PI;
-            auto gamma = 0. * 2. * M_PI;
+            auto alpha = 2. * M_PI * (-(t + (double) (i - 2) / (numSpheres - 2)));
+            auto beta = 2. * M_PI * ((i - 2 >= (numSpheres - 2) / 2 ? -1 : 1) / 16.);
+            auto gamma = 2. * M_PI * (0.);
 
-            auto pos = Vec3{
-                    cos(alpha) * cos(beta),
-                    cos(alpha) * sin(beta) * sin(gamma) - sin(alpha) * cos(gamma),
-                    cos(alpha) * sin(beta) * cos(gamma) + sin(alpha) * sin(gamma)
-            };
+            auto pos = Vec3{sqrt(spheres[1].rSq) + ((numSpheres - 2) / 4.) * r, 0, 0}.rotate(alpha, beta, gamma);
 
-            auto r = 1. / 6.;
-            pos *= 0.5 + 1.5 * r;
             spheres[i] = {pos, r * r, Color{0.2}, Color{0.8}, 32, Color{0.8}};
         }
 
         // measurement
-        auto start = std::chrono::steady_clock::now();
-
         auto startRT = std::chrono::steady_clock::now();
 
         createImage(nxRT, nyRT, t, img);
+
+        auto endRT = std::chrono::steady_clock::now();
+
+        auto startMap = std::chrono::steady_clock::now();
+
         std::swap(img0, img1);
 
         for (size_t j = 0; j < nyOF; ++j)
-            for (size_t i = 0; i < nxOF; ++i)
-#ifdef USE_COLOR
-            {
+            for (size_t i = 0; i < nxOF; ++i) {
                 img0[j * nxOF + i] = 0;
-                for (auto dim = 0; dim < 3; ++dim)
-                    img0[j * nxOF + i] += img[((2 * j + 0) * nxRT + 2 * i + 0) * 3 + dim]
-                                          + img[((2 * j + 0) * nxRT + 2 * i + 1) * 3 + dim]
-                                          + img[((2 * j + 1) * nxRT + 2 * i + 0) * 3 + dim]
-                                          + img[((2 * j + 1) * nxRT + 2 * i + 1) * 3 + dim];
-                img0[j * nxOF + i] /= 3 * 4;
-//                for (auto dim = 0; dim < 3; ++dim)
-//                    img0[j * nxOF + i] += img[(j * nxRT + i) * 3 + dim];
-//                img0[j * nxOF + i] /= 3;
-            }
+                for (size_t jOff = 0; jOff < supersampling; ++jOff)
+                    for (size_t iOff = 0; iOff < supersampling; ++iOff)
+#ifdef USE_COLOR
+                            for (auto dim = 0; dim < 3; ++dim)
+                                img0[j * nxOF + i] += img[((supersampling * j + jOff) * nxRT + supersampling * i + iOff) * 3 + dim];
+                img0[j * nxOF + i] /= 3;
 #else
-        img0[j * nxOF + i] += img[(2 * j + 0) * nxRT + 2 * i + 0]
-                              + img[(2 * j + 0) * nxRT + 2 * i + 1]
-                              + img[(2 * j + 1) * nxRT + 2 * i + 0]
-                              + img[(2 * j + 1) * nxRT + 2 * i + 1];
-//        img0[j * nxOF + i] = img[j * nxOF + i];
+                img0[j * nxOF + i] += img[(supersampling * j + jOff) * nxRT + supersampling * i + iOff]
 #endif
+                img0[j * nxOF + i] /= supersampling * supersampling;
+            }
 
-        auto endRT = std::chrono::steady_clock::now();
+        auto endMap = std::chrono::steady_clock::now();
 
         auto startOF = std::chrono::steady_clock::now();
 
         if (t > 0) {
-            constexpr auto numMGSteps = 10;
-
             initGradientsAndRHS(nxOF, nyOF, img0, img1, mgIxIx[numLevels - 1], mgIxIy[numLevels - 1], mgIyIy[numLevels - 1], mgRhsU[numLevels - 1], mgRhsV[numLevels - 1]);
             for (auto level = numLevels - 1; level >= 1; --level)
                 coarsenOperator((1u << (level - 1)) + 2, (1u << (level - 1)) + 2, (1u << level) + 2, (1u << level) + 2,
@@ -278,23 +213,25 @@ int main(int argc, char *argv[]) {
                                    mgRhsU[numLevels - 1], mgRhsV[numLevels - 1]);
             std::cout << "Initial residual : " << initRes << std::endl;
 
-            for (auto mgIt = 0; mgIt < numMGSteps; ++mgIt)
+            for (auto mgIt = 0; mgIt < mgIterations; ++mgIt)
                 multigrid(numLevels - 1, 2. / 3., mgRhsU, mgRhsV, mgSolU, mgSolV, mgSolNewU, mgSolNewV, mgResU, mgResV, mgIxIx, mgIxIy, mgIyIy);
 
             auto res = resNorm(nxOF, nyOF,
                                mgSolU[numLevels - 1], mgSolV[numLevels - 1],
                                mgIxIx[numLevels - 1], mgIxIy[numLevels - 1], mgIyIy[numLevels - 1],
                                mgRhsU[numLevels - 1], mgRhsV[numLevels - 1]);
-            std::cout << "Residual after " << numMGSteps << " : " << res << std::endl;
+            std::cout << "Residual after " << mgIterations << " : " << res << std::endl;
         }
 
         auto endOF = std::chrono::steady_clock::now();
 
         std::chrono::duration<double> elapsedSecondsRT = endRT - startRT;
+        std::chrono::duration<double> elapsedSecondsMap = endMap - startMap;
         std::chrono::duration<double> elapsedSecondsOF = endOF - startOF;
-        std::cout << "Time for ray-tracing / optical flow " << 1e3 * elapsedSecondsRT.count() << " / " << 1e3 * elapsedSecondsOF.count() << std::endl;
-
-        auto end = std::chrono::steady_clock::now();
+        std::cout << "Time for ray-tracing / mapping / optical flow "
+                  << 1e3 * elapsedSecondsRT.count() << " / "
+                  << 1e3 * elapsedSecondsMap.count() << " / "
+                  << 1e3 * elapsedSecondsOF.count() << std::endl;
 
 #ifdef USE_CIMG
         cimg_library::CImg<double> imgShowRT(nxRT, nyRT, 1, 3, 1.);
@@ -316,18 +253,17 @@ int main(int argc, char *argv[]) {
 
         imgShowRT.mirror('y');
         imgShowOF.mirror('y');
-        imgShowRT.resize(512, 512);
-        imgShowOF.resize(512, 512);
+        imgShowRT.resize(nxOF - 2, nxOF - 2);
+        imgShowOF.resize(nxOF - 2, nyOF - 2);
         static cimg_library::CImgDisplay displayRT(imgShowRT, "ray-tracing");
         displayRT = imgShowRT;
         static cimg_library::CImgDisplay displayOF(imgShowRT, "optical-flow");
         displayOF = imgShowOF;
-        while (t >= 1000 && !displayRT.is_closed() && !displayOF.is_closed())
+        while (t >= maxTime && !displayRT.is_closed() && !displayOF.is_closed())
             displayRT.wait();
     }
 #else
     }
-//    printStats(end - start, nxOF * nyOF, nIt, stencil2dNumReads, stencil2dNumWrites);
 #endif
 
     // check solution

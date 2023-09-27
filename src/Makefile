@@ -6,12 +6,11 @@ BUILD_DIR = ../../build/$(TEST_CASE)
 
 # default benchmark parameters
 
-NX    = 514
-NY    = ${NX}
-NWARM = 0
-NIT   = 1
+NUMLVL      = 10
+SUPERSAMPLE = 2
+NUMMG       = 10
 
-PARAMETERS = ${NX} ${NY} ${NWARM} ${NIT}
+PARAMETERS = ${NUMLVL} ${SUPERSAMPLE} ${NUMMG}
 
 
 # all

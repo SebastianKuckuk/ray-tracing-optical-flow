@@ -84,6 +84,32 @@ struct Vec3 {
         }
     }
 
+    [[nodiscard]] Vec3 rotate(double alpha, double beta, double gamma) const {
+        const double rot[3][3] = {
+                {
+                        cos(alpha) * cos(beta),
+                        cos(alpha) * sin(beta) * sin(gamma) - sin(alpha) * cos(gamma),
+                        cos(alpha) * sin(beta) * cos(gamma) + sin(alpha) * sin(gamma)
+                },
+                {
+                        sin(alpha) * cos(beta),
+                        sin(alpha) * sin(beta) * sin(gamma) + cos(alpha) * cos(gamma),
+                        sin(alpha) * sin(beta) * cos(gamma) - cos(alpha) * sin(gamma)
+                },
+                {
+                        -sin(beta),
+                        cos(beta) * sin(gamma),
+                        cos(beta) * cos(gamma)
+                }
+        };
+
+        return Vec3{
+                rot[0][0] * x + rot[0][1] * y + rot[0][2] * z,
+                rot[1][0] * x + rot[1][1] * y + rot[1][2] * z,
+                rot[2][0] * x + rot[2][1] * y + rot[2][2] * z
+        };
+    }
+
     // Print the vector
     void print() const {
         std::cout << "(" << x << ", " << y << ", " << z << ")" << std::endl;

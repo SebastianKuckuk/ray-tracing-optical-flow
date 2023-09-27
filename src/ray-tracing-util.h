@@ -81,21 +81,25 @@ Light lights[] = {
 
 constexpr auto numLights = sizeof(lights) / sizeof(Light);
 
-void parseCLA_2d(int argc, char *const *argv, size_t &nx, size_t &ny, size_t &nItWarmUp, size_t &nIt) {
+
+void parseCLA(int argc, char *const *argv, size_t &numLevels, size_t &supersampling, size_t &mgIterations, double &dt, double &maxTime) {
     // default values
-    nx = 1024;
-    ny = nx;
-    nItWarmUp = 2;
-    nIt = 10;
+    numLevels = 10;
+    supersampling = 2;
+    mgIterations = 10;
+    dt = 1e-2;
+    maxTime = dt * 16;
 
     // override with command line arguments
     int i = 1;
-    if (argc > i) nx = atoi(argv[i]);
+    if (argc > i) numLevels = atoi(argv[i]);
     ++i;
-    if (argc > i) ny = atoi(argv[i]);
+    if (argc > i) supersampling = atoi(argv[i]);
     ++i;
-    if (argc > i) nItWarmUp = atoi(argv[i]);
+    if (argc > i) mgIterations = atoi(argv[i]);
     ++i;
-    if (argc > i) nIt = atoi(argv[i]);
+    if (argc > i) dt = atof(argv[i]);
+    ++i;
+    if (argc > i) maxTime = atof(argv[i]);
     ++i;
 }
