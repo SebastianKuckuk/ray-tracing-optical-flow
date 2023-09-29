@@ -5,6 +5,7 @@
 
 #include "vec3.h"
 
+
 struct Ray {
     Vec3 origin;
     Vec3 direction;
@@ -80,26 +81,3 @@ Light lights[] = {
 #endif
 
 constexpr auto numLights = sizeof(lights) / sizeof(Light);
-
-
-void parseCLA(int argc, char *const *argv, size_t &numLevels, size_t &supersampling, size_t &mgIterations, double &dt, double &maxTime) {
-    // default values
-    numLevels = 10;
-    supersampling = 2;
-    mgIterations = 10;
-    dt = 1e-2;
-    maxTime = dt * 16;
-
-    // override with command line arguments
-    int i = 1;
-    if (argc > i) numLevels = atoi(argv[i]);
-    ++i;
-    if (argc > i) supersampling = atoi(argv[i]);
-    ++i;
-    if (argc > i) mgIterations = atoi(argv[i]);
-    ++i;
-    if (argc > i) dt = atof(argv[i]);
-    ++i;
-    if (argc > i) maxTime = atof(argv[i]);
-    ++i;
-}
