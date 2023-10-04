@@ -15,13 +15,13 @@ with open(args.input, "rb") as file:
     raw_data = file.read()
 
 # Calculate the number of bytes per pixel
-bytes_per_pixel = 3  # Assuming 3 channels for RGB (Red, Green, Blue)
+num_color_channels = 3  # Assuming 3 channels for RGB (Red, Green, Blue)
 
 # Convert the raw data to a NumPy array of bytes
-data_array = np.frombuffer(raw_data, dtype=np.uint8)
+data_array = np.frombuffer(raw_data, dtype=np.float32)
 
 # Reshape the data array to match the image dimensions and channels
-data_array = data_array.reshape((args.height, args.width, bytes_per_pixel))
+data_array = data_array.reshape((args.height, args.width, num_color_channels))
 
 # Create an image from the data array
 plt.imshow(data_array)

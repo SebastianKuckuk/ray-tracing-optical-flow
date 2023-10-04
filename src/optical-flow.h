@@ -3,7 +3,7 @@
 
 constexpr auto ompThreshold = 8 * 1024; // number of work elements required to enable OpenMP parallelization
 
-constexpr double regularization = 1.e4; // alpha**2 in the original formulation -> name clash with CG alpha
+constexpr double regularization = 1.; // alpha**2 in the original formulation -> name clash with CG alpha
 
 
 inline void initGradientsAndRHS(size_t nx, size_t ny, double dt,

@@ -1,13 +1,7 @@
 #include <chrono>
 #include <fstream>
 #include <cstring>
-
-#define USE_CIMG
-#ifdef USE_CIMG
-
-#include "Cimg.h"
-
-#endif
+#include <sstream>
 
 #include "ray-tracing.h"
 #include "optical-flow.h"
@@ -19,7 +13,7 @@ void parseCLA(int argc, char *const *argv, size_t &numLevels, size_t &supersampl
     supersampling = 2;
     mgIterations = 10;
     dt = 1e-2;
-    maxTime = dt * 16;
+    maxTime = dt * 2;
 
     // override with command line arguments
     int i = 1;
@@ -33,6 +27,38 @@ void parseCLA(int argc, char *const *argv, size_t &numLevels, size_t &supersampl
     ++i;
     if (argc > i) maxTime = atof(argv[i]);
     ++i;
+}
+
+
+void printImage(size_t nx, size_t ny, const double *const img, const std::string &filename) {
+    std::ofstream outStream(filename, std::iostream::binary);
+    for (size_t j = 1; j < ny - 1; ++j) {
+        for (size_t i = 1; i < nx - 1; ++i) {
+            for (auto dim = 0; dim < 3; ++dim) {
+                auto c = (float) img[j * nx + i];
+                outStream.write(reinterpret_cast<const char *>(&c), sizeof(float));
+            }
+        }
+    }
+
+    outStream.close();
+}
+
+void printImage(size_t nx, size_t ny, const double *const imgU, const double *const imgV, const std::string &filename) {
+    std::ofstream outStream(filename, std::iostream::binary);
+    for (size_t j = 1; j < ny - 1; ++j) {
+        for (size_t i = 1; i < nx - 1; ++i) {
+            float c;
+            c = (float) (2. * imgU[j * nx + i] + 0.5);
+            outStream.write(reinterpret_cast<const char *>(&c), sizeof(float));
+            c = (float) (2. * imgV[j * nx + i] + 0.5);
+            outStream.write(reinterpret_cast<const char *>(&c), sizeof(float));
+            c = (float) (0.);
+            outStream.write(reinterpret_cast<const char *>(&c), sizeof(float));
+        }
+    }
+
+    outStream.close();
 }
 
 
@@ -84,11 +110,7 @@ int main(int argc, char *argv[]) {
     spheres[1] = {{0., 0., 0.}, 0.5 * 0.5, Color{0.8}, Color{0.2}, 8, Color{0.2}};
     // remaining spheres will be initialized in the time loop since they are moving
 
-#ifdef USE_CIMG
     for (; t <= maxTime; t += dt) {
-#else
-        for (; t <= dt; t += dt) {
-#endif
         for (auto i = 2; i < numSpheres; ++i) {
             auto r = 1. / 8.;
 
@@ -116,16 +138,21 @@ int main(int argc, char *argv[]) {
         for (size_t j = 0; j < nyOF; ++j)
             for (size_t i = 0; i < nxOF; ++i) {
                 img0[j * nxOF + i] = 0;
-                for (size_t jOff = 0; jOff < supersampling; ++jOff)
-                    for (size_t iOff = 0; iOff < supersampling; ++iOff)
+
+                for (size_t jOff = 0; jOff < supersampling; ++jOff) {
+                    for (size_t iOff = 0; iOff < supersampling; ++iOff) {
 #ifdef USE_COLOR
-                            for (auto dim = 0; dim < 3; ++dim)
-                                img0[j * nxOF + i] += img[((supersampling * j + jOff) * nxRT + supersampling * i + iOff) * 3 + dim];
-                img0[j * nxOF + i] /= 3;
+                        for (auto dim = 0; dim < 3; ++dim)
+                            img0[j * nxOF + i] += img[((supersampling * j + jOff) * nxRT + supersampling * i + iOff) * 3 + dim];
+                        img0[j * nxOF + i] /= 3;
 #else
-                img0[j * nxOF + i] += img[(supersampling * j + jOff) * nxRT + supersampling * i + iOff]
+                        img0[j * nxOF + i] += img[(supersampling * j + jOff) * nxRT + supersampling * i + iOff];
 #endif
+                    }
+                }
+
                 img0[j * nxOF + i] /= supersampling * supersampling;
+                img0[j * nxOF + i] /= 255.;
             }
 
         auto endMap = std::chrono::steady_clock::now();
@@ -164,59 +191,18 @@ int main(int argc, char *argv[]) {
                   << 1e3 * elapsedSecondsMap.count() << " / "
                   << 1e3 * elapsedSecondsOF.count() << std::endl;
 
-#ifdef USE_CIMG
-        cimg_library::CImg<double> imgShowRT(nxRT, nyRT, 1, 3, 1.);
-        cimg_library::CImg<double> imgShowOF(nxOF, nyOF, 1, 3, 1.);
-        for (size_t j = 0; j < nyRT; ++j)
-            for (size_t i = 0; i < nxRT; ++i)
-                for (auto dim = 0; dim < 3; ++dim)
-#ifdef USE_COLOR
-                        *imgShowRT.data(i, j, dim, 0) = img[(j * nxRT + i) * 3 + dim];
-#else
-        *imgShowRT.data(i, j, dim, 0) = img[j * nxRT + i];
-#endif
-
-        for (size_t j = 0; j < nyOF; ++j)
-            for (size_t i = 0; i < nxOF; ++i)
-                for (auto dim = 0; dim < 3; ++dim)
-                    *imgShowOF.data(i, j, dim, 0) = std::sqrt(mgSolU[numLevels - 1][j * nxOF + i] * mgSolU[numLevels - 1][j * nxOF + i]
-                                                              + mgSolV[numLevels - 1][j * nxOF + i] * mgSolV[numLevels - 1][j * nxOF + i]);
-
-        imgShowRT.mirror('y');
-        imgShowOF.mirror('y');
-        imgShowRT.resize(nxOF - 2, nxOF - 2);
-        imgShowOF.resize(nxOF - 2, nyOF - 2);
-        static cimg_library::CImgDisplay displayRT(imgShowRT, "ray-tracing");
-        displayRT = imgShowRT;
-        static cimg_library::CImgDisplay displayOF(imgShowRT, "optical-flow");
-        displayOF = imgShowOF;
-        while (t >= maxTime && !displayRT.is_closed() && !displayOF.is_closed())
-            displayRT.wait();
+        // print images
+        {
+            std::stringstream filename;
+            filename << "../images/ray-tracing-" << t << ".raw";
+            printImage(nxOF, nyOF, img0, filename.str());
+        }
+        {
+            std::stringstream filename;
+            filename << "../images/optical-flow-" << t << ".raw";
+            printImage(nxOF, nyOF, mgSolU[numLevels - 1], mgSolV[numLevels - 1], filename.str());
+        }
     }
-#else
-    }
-#endif
-
-    // check solution
-#ifdef USE_COLOR
-    std::ofstream outStream("./result.raw");
-    for (size_t j = 0; j < nyOF; ++j)
-        for (size_t i = 0; i < nxOF; ++i)
-            outStream << img[(j * nxOF + i) * 3 + 0] << img[(j * nxOF + i) * 3 + 1] << img[(j * nxOF + i) * 3 + 2];
-    outStream.close();
-#else
-    //    checkSolutionRayTracing(img, nxOF, nyOF);
-    auto fd = fopen("./result.pnm", "w");
-    fprintf(fd, "P5\n%zu %zu\n255\n", nxOF, nyOF);
-    fwrite(img, sizeof(unsigned char), nxOF * nyOF, fd);
-    fclose(fd);
-
-    std::ofstream outStream("./result.raw");
-    for (size_t j = 0; j < nyOF; ++j)
-        for (size_t i = 0; i < nxOF; ++i)
-            outStream << img[j * nxOF + i] << img[j * nxOF + i] << img[j * nxOF + i];
-    outStream.close();
-#endif
 
     // de-allocate optical flow solver
     delete[] img0;

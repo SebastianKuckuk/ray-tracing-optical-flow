@@ -12,7 +12,7 @@ struct Ray {
 };
 
 
-#define USE_COLOR
+//#define USE_COLOR
 
 #ifdef USE_COLOR
 using Color = Vec3;
