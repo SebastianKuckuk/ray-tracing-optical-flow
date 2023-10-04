@@ -147,83 +147,89 @@ int main(int argc, char *argv[]) {
     numSpheres = 1 + 1 + 20; // one large bottom sphere, one center sphere and multiple orbiting spheres
     spheres = static_cast<Sphere *>(malloc(numSpheres * sizeof(Sphere)));
 
-    for (size_t tIt = 0; tIt < numTimeSteps + 1; ++tIt) {
-        auto t = tStart + tIt * dt;
+    constexpr auto numRep = 2;
+    for (size_t rep = 0; rep < numRep; ++rep) {
+        for (size_t tIt = 0; tIt < numTimeSteps + 1; ++tIt) {
+            auto t = tStart + tIt * dt + rep * dt * numTimeSteps * numRanks;
 
-        initSpheres(t);
+            initSpheres(t);
 
-        // measurement
-        auto startRT = std::chrono::steady_clock::now();
+            // measurement
+            auto startRT = std::chrono::steady_clock::now();
 
-        if (numTimeSteps == tIt && mpiRank < numRanks - 1)
-            MPI_Recv(img, nxRT * nyRT, MPI_UINT8_T, mpiRank + 1, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-        else
-            createImage(nxRT, nyRT, t, img);
+            if (numTimeSteps == tIt && !(numRep - 1 == rep && numRanks - 1 == mpiRank))
+                MPI_Recv(img, nxRT * nyRT, MPI_UINT8_T, (mpiRank + numRanks + 1) % numRanks, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+            else
+                createImage(nxRT, nyRT, t, img);
 
-        if (0 == tIt && mpiRank > 0) {
-            memcpy(mpiBuffer, img, nxRT * nyRT * sizeof(unsigned char) * sizeof(Color) / sizeof(double));
-            MPI_Isend(mpiBuffer, nxRT * nyRT, MPI_UINT8_T, mpiRank - 1, 0, MPI_COMM_WORLD, &mpiReq);
-        }
+            if (0 == tIt && !(0 == mpiRank && 0 == rep)) {
+                memcpy(mpiBuffer, img, nxRT * nyRT * sizeof(unsigned char) * sizeof(Color) / sizeof(double));
+                MPI_Isend(mpiBuffer, nxRT * nyRT, MPI_UINT8_T, (mpiRank + numRanks - 1) % numRanks, 0, MPI_COMM_WORLD, &mpiReq);
+            }
 
-        auto endRT = std::chrono::steady_clock::now();
+            auto endRT = std::chrono::steady_clock::now();
 
-        auto startMap = std::chrono::steady_clock::now();
+            auto startMap = std::chrono::steady_clock::now();
 
-        std::swap(img0, img1);
+            std::swap(img0, img1);
 
-        mapImages(nxOF, nyOF, nxRT, img, img0, supersampling);
+            mapImages(nxOF, nyOF, nxRT, img, img0, supersampling);
 
-        auto endMap = std::chrono::steady_clock::now();
+            auto endMap = std::chrono::steady_clock::now();
 
-        auto startOF = std::chrono::steady_clock::now();
+            auto startOF = std::chrono::steady_clock::now();
 
-        if (tIt > 0) {
-            initGradientsAndRHS(nxOF, nyOF, dt, img0, img1, mgIxIx[numLevels - 1], mgIxIy[numLevels - 1], mgIyIy[numLevels - 1], mgRhsU[numLevels - 1], mgRhsV[numLevels - 1]);
-            for (auto level = numLevels - 1; level >= 1; --level)
-                coarsenOperator((1u << (level - 1)) + 2, (1u << (level - 1)) + 2, (1u << level) + 2, (1u << level) + 2,
-                                mgIxIx[level], mgIxIy[level], mgIyIy[level], mgIxIx[level - 1], mgIxIy[level - 1], mgIyIy[level - 1]);
+            if (tIt > 0) {
+                initGradientsAndRHS(nxOF, nyOF, dt, img0, img1, mgIxIx[numLevels - 1], mgIxIy[numLevels - 1], mgIyIy[numLevels - 1], mgRhsU[numLevels - 1], mgRhsV[numLevels - 1]);
+                for (auto level = numLevels - 1; level >= 1; --level)
+                    coarsenOperator((1u << (level - 1)) + 2, (1u << (level - 1)) + 2, (1u << level) + 2, (1u << level) + 2,
+                                    mgIxIx[level], mgIxIy[level], mgIyIy[level], mgIxIx[level - 1], mgIxIy[level - 1], mgIyIy[level - 1]);
 
-            auto initRes = resNorm(nxOF, nyOF,
+                auto initRes = resNorm(nxOF, nyOF,
+                                       mgSolU[numLevels - 1], mgSolV[numLevels - 1],
+                                       mgIxIx[numLevels - 1], mgIxIy[numLevels - 1], mgIyIy[numLevels - 1],
+                                       mgRhsU[numLevels - 1], mgRhsV[numLevels - 1]);
+
+                for (auto mgIt = 0; mgIt < mgIterations; ++mgIt)
+                    multigrid(numLevels - 1, 2. / 3., mgRhsU, mgRhsV, mgSolU, mgSolV, mgSolNewU, mgSolNewV, mgResU, mgResV, mgIxIx, mgIxIy, mgIyIy);
+
+                auto res = resNorm(nxOF, nyOF,
                                    mgSolU[numLevels - 1], mgSolV[numLevels - 1],
                                    mgIxIx[numLevels - 1], mgIxIy[numLevels - 1], mgIyIy[numLevels - 1],
                                    mgRhsU[numLevels - 1], mgRhsV[numLevels - 1]);
+                std::cout << "Residual before / after " << mgIterations << " : " << initRes << " / " << res << std::endl;
+            }
 
-            for (auto mgIt = 0; mgIt < mgIterations; ++mgIt)
-                multigrid(numLevels - 1, 2. / 3., mgRhsU, mgRhsV, mgSolU, mgSolV, mgSolNewU, mgSolNewV, mgResU, mgResV, mgIxIx, mgIxIy, mgIyIy);
+            auto endOF = std::chrono::steady_clock::now();
 
-            auto res = resNorm(nxOF, nyOF,
-                               mgSolU[numLevels - 1], mgSolV[numLevels - 1],
-                               mgIxIx[numLevels - 1], mgIxIy[numLevels - 1], mgIyIy[numLevels - 1],
-                               mgRhsU[numLevels - 1], mgRhsV[numLevels - 1]);
-            std::cout << "Residual before / after " << mgIterations << " : " << initRes << " / " << res << std::endl;
+            std::chrono::duration<double> elapsedSecondsRT = endRT - startRT;
+            std::chrono::duration<double> elapsedSecondsMap = endMap - startMap;
+            std::chrono::duration<double> elapsedSecondsOF = endOF - startOF;
+            std::cout << "Time for ray-tracing / mapping / optical flow "
+                      << 1e3 * elapsedSecondsRT.count() << " / "
+                      << 1e3 * elapsedSecondsMap.count() << " / "
+                      << 1e3 * elapsedSecondsOF.count() << std::endl;
+
+            // print images
+            if (tIt < numTimeSteps) {
+                std::stringstream filename;
+                filename << "../images/ray-tracing-" << t << ".raw";
+                printImage(nxOF, nyOF, img0, filename.str());
+            }
+            if (tIt > 0) {
+                std::stringstream filename;
+                filename << "../images/optical-flow-" << t - 0.5 * dt << ".raw";
+                printImage(nxOF, nyOF, mgSolU[numLevels - 1], mgSolV[numLevels - 1], filename.str());
+            }
         }
 
-        auto endOF = std::chrono::steady_clock::now();
-
-        std::chrono::duration<double> elapsedSecondsRT = endRT - startRT;
-        std::chrono::duration<double> elapsedSecondsMap = endMap - startMap;
-        std::chrono::duration<double> elapsedSecondsOF = endOF - startOF;
-        std::cout << "Time for ray-tracing / mapping / optical flow "
-                  << 1e3 * elapsedSecondsRT.count() << " / "
-                  << 1e3 * elapsedSecondsMap.count() << " / "
-                  << 1e3 * elapsedSecondsOF.count() << std::endl;
-
-        // print images
-        if (tIt < numTimeSteps) {
-            std::stringstream filename;
-            filename << "../images/ray-tracing-" << t << ".raw";
-            printImage(nxOF, nyOF, img0, filename.str());
-        }
-        if (tIt > 0) {
-            std::stringstream filename;
-            filename << "../images/optical-flow-" << t - 0.5 * dt << ".raw";
-            printImage(nxOF, nyOF, mgSolU[numLevels - 1], mgSolV[numLevels - 1], filename.str());
+        if (mpiRank > 0 || rep > 0) {
+            MPI_Wait(&mpiReq, MPI_STATUS_IGNORE);
+            mpiReq = MPI_REQUEST_NULL;
         }
     }
 
     // de-allocate MPI
-    if (mpiRank > 0)
-        MPI_Wait(&mpiReq, MPI_STATUS_IGNORE);
     delete[] mpiBuffer;
 
     // de-allocate optical flow solver
