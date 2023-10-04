@@ -51,6 +51,24 @@ Sphere *spheres;
 int numSpheres;
 
 
+inline void initSpheres(double t) {
+    spheres[0] = {{0., 0., -130.}, 128 * 128., Color{0.8}, Color{0.2}, 16, Color{0.8}};
+    spheres[1] = {{0., 0., 0.}, 0.5 * 0.5, Color{0.8}, Color{0.2}, 8, Color{0.2}};
+
+    for (auto i = 2; i < numSpheres; ++i) {
+        auto r = 1. / 8.;
+
+        auto alpha = 2. * M_PI * (-(t + (double) (i - 2) / (numSpheres - 2)));
+        auto beta = 2. * M_PI * ((i - 2 >= (numSpheres - 2) / 2 ? -1 : 1) / 16.);
+        auto gamma = 2. * M_PI * (0.);
+
+        auto pos = Vec3{sqrt(spheres[1].rSq) + ((numSpheres - 2) / 4.) * r, 0, 0}.rotate(alpha, beta, gamma);
+
+        spheres[i] = {pos, r * r, Color{0.2}, Color{0.8}, 32, Color{0.8}};
+    }
+}
+
+
 struct Light {
     Vec3 position; // 3D position
     Color color;

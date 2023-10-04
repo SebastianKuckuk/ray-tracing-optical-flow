@@ -3,17 +3,20 @@
 #include <cstring>
 #include <sstream>
 
+#include <mpi.h>
+
 #include "ray-tracing.h"
 #include "optical-flow.h"
 
 
-void parseCLA(int argc, char *const *argv, size_t &numLevels, size_t &supersampling, size_t &mgIterations, double &dt, double &maxTime) {
+void parseCLA(int argc, char *const *argv, size_t &numLevels, size_t &supersampling, size_t &mgIterations,
+              double &tStart, double &dt, size_t &numTimeSteps) {
     // default values
     numLevels = 10;
     supersampling = 2;
     mgIterations = 10;
     dt = 1e-2;
-    maxTime = dt * 2;
+    numTimeSteps = 4;
 
     // override with command line arguments
     int i = 1;
@@ -25,8 +28,36 @@ void parseCLA(int argc, char *const *argv, size_t &numLevels, size_t &supersampl
     ++i;
     if (argc > i) dt = atof(argv[i]);
     ++i;
-    if (argc > i) maxTime = atof(argv[i]);
+    if (argc > i) numTimeSteps = atof(argv[i]);
     ++i;
+
+    int mpiRank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &mpiRank);
+    tStart = mpiRank * dt * numTimeSteps;
+}
+
+
+void mapImages(size_t nxOF, size_t nyOF, size_t nxRT, const unsigned char *img, double *img0, size_t supersampling) {
+#pragma omp parallel for schedule (static) collapse(2)
+    for (size_t j = 0; j < nyOF; ++j)
+        for (size_t i = 0; i < nxOF; ++i) {
+            img0[j * nxOF + i] = 0;
+
+            for (size_t jOff = 0; jOff < supersampling; ++jOff) {
+                for (size_t iOff = 0; iOff < supersampling; ++iOff) {
+#ifdef USE_COLOR
+                    for (auto dim = 0; dim < 3; ++dim)
+                        img0[j * nxOF + i] += img[((supersampling * j + jOff) * nxRT + supersampling * i + iOff) * 3 + dim];
+                    img0[j * nxOF + i] /= 3;
+#else
+                    img0[j * nxOF + i] += img[(supersampling * j + jOff) * nxRT + supersampling * i + iOff];
+#endif
+                }
+            }
+
+            img0[j * nxOF + i] /= supersampling * supersampling;
+            img0[j * nxOF + i] /= 255.;
+        }
 }
 
 
@@ -49,9 +80,9 @@ void printImage(size_t nx, size_t ny, const double *const imgU, const double *co
     for (size_t j = 1; j < ny - 1; ++j) {
         for (size_t i = 1; i < nx - 1; ++i) {
             float c;
-            c = (float) (2. * imgU[j * nx + i] + 0.5);
+            c = (float) (1. * imgU[j * nx + i] + 0.);
             outStream.write(reinterpret_cast<const char *>(&c), sizeof(float));
-            c = (float) (2. * imgV[j * nx + i] + 0.5);
+            c = (float) (1. * imgV[j * nx + i] + 0.);
             outStream.write(reinterpret_cast<const char *>(&c), sizeof(float));
             c = (float) (0.);
             outStream.write(reinterpret_cast<const char *>(&c), sizeof(float));
@@ -63,9 +94,12 @@ void printImage(size_t nx, size_t ny, const double *const imgU, const double *co
 
 
 int main(int argc, char *argv[]) {
+    MPI_Init(&argc, &argv);
+
     size_t numLevels, supersampling, mgIterations;
-    double dt, maxTime;
-    parseCLA(argc, argv, numLevels, supersampling, mgIterations, dt, maxTime);
+    double tStart, dt;
+    size_t numTimeSteps;
+    parseCLA(argc, argv, numLevels, supersampling, mgIterations, tStart, dt, numTimeSteps);
 
     size_t nxOF = (1u << (numLevels - 1)) + 2;
     size_t nyOF = (1u << (numLevels - 1)) + 2;
@@ -101,32 +135,35 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    auto t = 0.0;
+    // init MPI
+    int mpiRank, numRanks;
+    MPI_Comm_rank(MPI_COMM_WORLD, &mpiRank);
+    MPI_Comm_size(MPI_COMM_WORLD, &numRanks);
 
-    // init spheres
+    MPI_Request mpiReq;
+    auto mpiBuffer = new unsigned char[nxRT * nyRT * sizeof(Color) / sizeof(double)];
+
+    // allocate spheres
     numSpheres = 1 + 1 + 20; // one large bottom sphere, one center sphere and multiple orbiting spheres
     spheres = static_cast<Sphere *>(malloc(numSpheres * sizeof(Sphere)));
-    spheres[0] = {{0., 0., -130.}, 128 * 128., Color{0.8}, Color{0.2}, 16, Color{0.8}};
-    spheres[1] = {{0., 0., 0.}, 0.5 * 0.5, Color{0.8}, Color{0.2}, 8, Color{0.2}};
-    // remaining spheres will be initialized in the time loop since they are moving
 
-    for (; t <= maxTime; t += dt) {
-        for (auto i = 2; i < numSpheres; ++i) {
-            auto r = 1. / 8.;
+    for (size_t tIt = 0; tIt < numTimeSteps + 1; ++tIt) {
+        auto t = tStart + tIt * dt;
 
-            auto alpha = 2. * M_PI * (-(t + (double) (i - 2) / (numSpheres - 2)));
-            auto beta = 2. * M_PI * ((i - 2 >= (numSpheres - 2) / 2 ? -1 : 1) / 16.);
-            auto gamma = 2. * M_PI * (0.);
-
-            auto pos = Vec3{sqrt(spheres[1].rSq) + ((numSpheres - 2) / 4.) * r, 0, 0}.rotate(alpha, beta, gamma);
-
-            spheres[i] = {pos, r * r, Color{0.2}, Color{0.8}, 32, Color{0.8}};
-        }
+        initSpheres(t);
 
         // measurement
         auto startRT = std::chrono::steady_clock::now();
 
-        createImage(nxRT, nyRT, t, img);
+        if (numTimeSteps == tIt && mpiRank < numRanks - 1)
+            MPI_Recv(img, nxRT * nyRT, MPI_UINT8_T, mpiRank + 1, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+        else
+            createImage(nxRT, nyRT, t, img);
+
+        if (0 == tIt && mpiRank > 0) {
+            memcpy(mpiBuffer, img, nxRT * nyRT * sizeof(unsigned char) * sizeof(Color) / sizeof(double));
+            MPI_Isend(mpiBuffer, nxRT * nyRT, MPI_UINT8_T, mpiRank - 1, 0, MPI_COMM_WORLD, &mpiReq);
+        }
 
         auto endRT = std::chrono::steady_clock::now();
 
@@ -134,32 +171,13 @@ int main(int argc, char *argv[]) {
 
         std::swap(img0, img1);
 
-#pragma omp parallel for schedule (static) collapse(2)
-        for (size_t j = 0; j < nyOF; ++j)
-            for (size_t i = 0; i < nxOF; ++i) {
-                img0[j * nxOF + i] = 0;
-
-                for (size_t jOff = 0; jOff < supersampling; ++jOff) {
-                    for (size_t iOff = 0; iOff < supersampling; ++iOff) {
-#ifdef USE_COLOR
-                        for (auto dim = 0; dim < 3; ++dim)
-                            img0[j * nxOF + i] += img[((supersampling * j + jOff) * nxRT + supersampling * i + iOff) * 3 + dim];
-                        img0[j * nxOF + i] /= 3;
-#else
-                        img0[j * nxOF + i] += img[(supersampling * j + jOff) * nxRT + supersampling * i + iOff];
-#endif
-                    }
-                }
-
-                img0[j * nxOF + i] /= supersampling * supersampling;
-                img0[j * nxOF + i] /= 255.;
-            }
+        mapImages(nxOF, nyOF, nxRT, img, img0, supersampling);
 
         auto endMap = std::chrono::steady_clock::now();
 
         auto startOF = std::chrono::steady_clock::now();
 
-        if (t > 0) {
+        if (tIt > 0) {
             initGradientsAndRHS(nxOF, nyOF, dt, img0, img1, mgIxIx[numLevels - 1], mgIxIy[numLevels - 1], mgIyIy[numLevels - 1], mgRhsU[numLevels - 1], mgRhsV[numLevels - 1]);
             for (auto level = numLevels - 1; level >= 1; --level)
                 coarsenOperator((1u << (level - 1)) + 2, (1u << (level - 1)) + 2, (1u << level) + 2, (1u << level) + 2,
@@ -169,7 +187,6 @@ int main(int argc, char *argv[]) {
                                    mgSolU[numLevels - 1], mgSolV[numLevels - 1],
                                    mgIxIx[numLevels - 1], mgIxIy[numLevels - 1], mgIyIy[numLevels - 1],
                                    mgRhsU[numLevels - 1], mgRhsV[numLevels - 1]);
-            std::cout << "Initial residual : " << initRes << std::endl;
 
             for (auto mgIt = 0; mgIt < mgIterations; ++mgIt)
                 multigrid(numLevels - 1, 2. / 3., mgRhsU, mgRhsV, mgSolU, mgSolV, mgSolNewU, mgSolNewV, mgResU, mgResV, mgIxIx, mgIxIy, mgIyIy);
@@ -178,7 +195,7 @@ int main(int argc, char *argv[]) {
                                mgSolU[numLevels - 1], mgSolV[numLevels - 1],
                                mgIxIx[numLevels - 1], mgIxIy[numLevels - 1], mgIyIy[numLevels - 1],
                                mgRhsU[numLevels - 1], mgRhsV[numLevels - 1]);
-            std::cout << "Residual after " << mgIterations << " : " << res << std::endl;
+            std::cout << "Residual before / after " << mgIterations << " : " << initRes << " / " << res << std::endl;
         }
 
         auto endOF = std::chrono::steady_clock::now();
@@ -192,17 +209,22 @@ int main(int argc, char *argv[]) {
                   << 1e3 * elapsedSecondsOF.count() << std::endl;
 
         // print images
-        {
+        if (tIt < numTimeSteps) {
             std::stringstream filename;
             filename << "../images/ray-tracing-" << t << ".raw";
             printImage(nxOF, nyOF, img0, filename.str());
         }
-        {
+        if (tIt > 0) {
             std::stringstream filename;
-            filename << "../images/optical-flow-" << t << ".raw";
+            filename << "../images/optical-flow-" << t - 0.5 * dt << ".raw";
             printImage(nxOF, nyOF, mgSolU[numLevels - 1], mgSolV[numLevels - 1], filename.str());
         }
     }
+
+    // de-allocate MPI
+    if (mpiRank > 0)
+        MPI_Wait(&mpiReq, MPI_STATUS_IGNORE);
+    delete[] mpiBuffer;
 
     // de-allocate optical flow solver
     delete[] img0;
@@ -219,6 +241,8 @@ int main(int argc, char *argv[]) {
     // de-allocate ray tracer
     delete[] img;
     free(spheres);
+
+    MPI_Finalize();
 
     return 0;
 }
