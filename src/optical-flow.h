@@ -18,7 +18,7 @@ inline void initGradientsAndRHS(size_t nx, size_t ny, double dt,
         for (size_t i = 1; i < nx - 1; ++i) {
             auto ix = (img0[(j + 0) * nx + (i + 1)] - img0[j * nx + i]) / gridWidth;// + (img1[(j + 0) * nx + (i + 1)] - img1[j * nx + i]) / gridWidth;
             auto iy = (img0[(j + 1) * nx + (i + 0)] - img0[j * nx + i]) / gridWidth;// + (img1[(j + 1) * nx + (i + 0)] - img1[j * nx + i]) / gridWidth;
-            auto it = (img1[j * nx + i] - img0[j * nx + i]) / dt;
+            auto it = (img0[j * nx + i] - img1[j * nx + i]) / dt;
             ixix[j * nx + i] = ix * ix;
             ixiy[j * nx + i] = ix * iy;
             iyiy[j * nx + i] = iy * iy;
