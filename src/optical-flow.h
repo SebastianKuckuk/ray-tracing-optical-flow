@@ -1,7 +1,9 @@
 #pragma once
 
 
-constexpr double regularization = 1.e4;//1.e4; // alpha**2 in the original formulation -> name clash with CG alpha
+constexpr auto ompThreshold = 8 * 1024; // number of work elements required to enable OpenMP parallelization
+
+constexpr double regularization = 1.e4; // alpha**2 in the original formulation -> name clash with CG alpha
 
 
 inline void initGradientsAndRHS(size_t nx, size_t ny, double dt,
@@ -11,7 +13,7 @@ inline void initGradientsAndRHS(size_t nx, size_t ny, double dt,
 
     auto gridWidth = 1. / (nx - 2.);
 
-#pragma omp parallel for schedule (static) //collapse(2)
+#pragma omp parallel for schedule (static) collapse(2) if((nx - 2) * (ny - 2) >= ompThreshold)
     for (size_t j = 1; j < ny - 1; ++j) {
         for (size_t i = 1; i < nx - 1; ++i) {
             auto ix = (img0[(j + 0) * nx + (i + 1)] - img0[j * nx + i]) / gridWidth;// + (img1[(j + 0) * nx + (i + 1)] - img1[j * nx + i]) / gridWidth;
@@ -68,7 +70,7 @@ inline void smooth(size_t nx, size_t ny, double omega,
 
     auto gridWidthSqInv = ((nx - 2.) * (nx - 2.));
 
-#pragma omp parallel for
+#pragma omp parallel for schedule (static) collapse(2) if((nx - 2) * (ny - 2) >= ompThreshold)
     for (size_t j = 1; j < ny - 1; ++j) {
         for (size_t i = 1; i < nx - 1; ++i) {
             uNew[j * nx + i] = (1. - omega) * u[j * nx + i]
@@ -95,6 +97,7 @@ inline void updateRes(size_t nx, size_t ny,
 
     auto gridWidthSqInv = ((nx - 2.) * (nx - 2.));
 
+#pragma omp parallel for schedule (static) collapse(2) if((nx - 2) * (ny - 2) >= ompThreshold)
     for (size_t j = 1; j < ny - 1; ++j) {
         for (size_t i = 1; i < nx - 1; ++i) {
             uRes[j * nx + i] = uRHS[j * nx + i] - (
@@ -120,8 +123,9 @@ inline double resNorm(size_t nx, size_t ny,
 
     auto gridWidthSqInv = ((nx - 2.) * (nx - 2.));
 
-    auto res = 0.;
+    auto norm = 0.;
 
+#pragma omp parallel for schedule (static) collapse(2) reduction( + : norm) if((nx - 2) * (ny - 2) >= ompThreshold)
     for (size_t j = 1; j < ny - 1; ++j) {
         for (size_t i = 1; i < nx - 1; ++i) {
             auto uRes = uRHS[j * nx + i] - (
@@ -136,11 +140,11 @@ inline double resNorm(size_t nx, size_t ny,
                     + regularization * gridWidthSqInv *
                       (4 * v[j * nx + i] - (v[j * nx + i - 1] + v[j * nx + i + 1] + v[(j - 1) * nx + i] + v[(j + 1) * nx + i])));
 
-            res += uRes * uRes + vRes * vRes;
+            norm += uRes * uRes + vRes * vRes;
         }
     }
 
-    return sqrt(res);
+    return sqrt(norm);
 }
 
 
@@ -150,21 +154,22 @@ inline void updateCoarserRhs(size_t nxCoarser, size_t nyCoarser, size_t nx, size
 
     auto scale = 1.;
 
-    for (size_t j = 1; j < nyCoarser - 1; ++j)
-        for (size_t i = 1; i < nxCoarser - 1; ++i)
+#pragma omp parallel for schedule (static) collapse(2) if((nxCoarser - 2) * (nyCoarser - 2) >= ompThreshold)
+    for (size_t j = 1; j < nyCoarser - 1; ++j) {
+        for (size_t i = 1; i < nxCoarser - 1; ++i) {
             rhsUCoarser[j * nxCoarser + i] = scale * 0.25 * (
                     resU[((j - 1) * 2 + 1 + 0) * nx + ((i - 1) * 2 + 1 + 0)]
                     + resU[((j - 1) * 2 + 1 + 1) * nx + ((i - 1) * 2 + 1 + 0)]
                     + resU[((j - 1) * 2 + 1 + 0) * nx + ((i - 1) * 2 + 1 + 1)]
                     + resU[((j - 1) * 2 + 1 + 1) * nx + ((i - 1) * 2 + 1 + 1)]);
 
-    for (size_t j = 1; j < nyCoarser - 1; ++j)
-        for (size_t i = 1; i < nxCoarser - 1; ++i)
             rhsVCoarser[j * nxCoarser + i] = scale * 0.25 * (
                     resV[((j - 1) * 2 + 1 + 0) * nx + ((i - 1) * 2 + 1 + 0)]
                     + resV[((j - 1) * 2 + 1 + 1) * nx + ((i - 1) * 2 + 1 + 0)]
                     + resV[((j - 1) * 2 + 1 + 0) * nx + ((i - 1) * 2 + 1 + 1)]
                     + resV[((j - 1) * 2 + 1 + 1) * nx + ((i - 1) * 2 + 1 + 1)]);
+        }
+    }
 }
 
 
@@ -174,29 +179,28 @@ inline void coarsenOperator(size_t nxCoarser, size_t nyCoarser, size_t nx, size_
 
     auto scale = 1.;
 
-    for (size_t j = 1; j < nyCoarser - 1; ++j)
-        for (size_t i = 1; i < nxCoarser - 1; ++i)
+#pragma omp parallel for schedule (static) collapse(2) if((nxCoarser - 2) * (nyCoarser - 2) >= ompThreshold)
+    for (size_t j = 1; j < nyCoarser - 1; ++j) {
+        for (size_t i = 1; i < nxCoarser - 1; ++i) {
             ixixCoarser[j * nxCoarser + i] = scale * 0.25 * (
                     ixix[((j - 1) * 2 + 1 + 0) * nx + ((i - 1) * 2 + 1 + 0)]
                     + ixix[((j - 1) * 2 + 1 + 1) * nx + ((i - 1) * 2 + 1 + 0)]
                     + ixix[((j - 1) * 2 + 1 + 0) * nx + ((i - 1) * 2 + 1 + 1)]
                     + ixix[((j - 1) * 2 + 1 + 1) * nx + ((i - 1) * 2 + 1 + 1)]);
 
-    for (size_t j = 1; j < nyCoarser - 1; ++j)
-        for (size_t i = 1; i < nxCoarser - 1; ++i)
             ixiyCoarser[j * nxCoarser + i] = scale * 0.25 * (
                     ixiy[((j - 1) * 2 + 1 + 0) * nx + ((i - 1) * 2 + 1 + 0)]
                     + ixiy[((j - 1) * 2 + 1 + 1) * nx + ((i - 1) * 2 + 1 + 0)]
                     + ixiy[((j - 1) * 2 + 1 + 0) * nx + ((i - 1) * 2 + 1 + 1)]
                     + ixiy[((j - 1) * 2 + 1 + 1) * nx + ((i - 1) * 2 + 1 + 1)]);
 
-    for (size_t j = 1; j < nyCoarser - 1; ++j)
-        for (size_t i = 1; i < nxCoarser - 1; ++i)
             iyiyCoarser[j * nxCoarser + i] = scale * 0.25 * (
                     iyiy[((j - 1) * 2 + 1 + 0) * nx + ((i - 1) * 2 + 1 + 0)]
                     + iyiy[((j - 1) * 2 + 1 + 1) * nx + ((i - 1) * 2 + 1 + 0)]
                     + iyiy[((j - 1) * 2 + 1 + 0) * nx + ((i - 1) * 2 + 1 + 1)]
                     + iyiy[((j - 1) * 2 + 1 + 1) * nx + ((i - 1) * 2 + 1 + 1)]);
+        }
+    }
 }
 
 
@@ -206,13 +210,14 @@ inline void correction(size_t nx, size_t ny, size_t nxCoarser, size_t nyCoarser,
 
     auto scale = 1.;
 
-    for (size_t j = 1; j < ny - 1; ++j)
-        for (size_t i = 1; i < nx - 1; ++i)
+#pragma omp parallel for schedule (static) collapse(2) if((nx - 2) * (ny - 2) >= ompThreshold)
+    for (size_t j = 1; j < ny - 1; ++j) {
+        for (size_t i = 1; i < nx - 1; ++i) {
             u[j * nx + i] += scale * uCoarser[((j - 1) / 2 + 1) * nxCoarser + ((i - 1) / 2 + 1)];
 
-    for (size_t j = 1; j < ny - 1; ++j)
-        for (size_t i = 1; i < nx - 1; ++i)
             v[j * nx + i] += scale * vCoarser[((j - 1) / 2 + 1) * nxCoarser + ((i - 1) / 2 + 1)];
+        }
+    }
 }
 
 

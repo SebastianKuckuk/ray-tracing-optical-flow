@@ -112,6 +112,7 @@ int main(int argc, char *argv[]) {
 
         std::swap(img0, img1);
 
+#pragma omp parallel for schedule (static) collapse(2)
         for (size_t j = 0; j < nyOF; ++j)
             for (size_t i = 0; i < nxOF; ++i) {
                 img0[j * nxOF + i] = 0;

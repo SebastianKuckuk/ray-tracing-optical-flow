@@ -53,7 +53,7 @@ Color trace(const Ray &ray, int numBounces) {
 
 
 inline void createImage(size_t nx, size_t ny, double t, unsigned char *__restrict__ img) {
-#pragma omp parallel for
+#pragma omp parallel for schedule (static) collapse(2)
     for (size_t j = 0; j < ny; ++j) {
         for (size_t i = 0; i < nx; ++i) {
             // compute screen coordinates

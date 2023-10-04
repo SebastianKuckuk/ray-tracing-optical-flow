@@ -1,5 +1,6 @@
 # configuration
 
+TEST_CASE = ray-tracing-optical-flow
 BUILD_DIR = ../build
 
 
@@ -14,7 +15,9 @@ PARAMETERS = ${NUMLVL} ${SUPERSAMPLE} ${NUMMG}
 
 # all
 
-targets = main
+targets = \
+    $(BUILD_DIR)/$(TEST_CASE)-base \
+    $(BUILD_DIR)/$(TEST_CASE)-omp-host \
 
 
 .PHONY: all
@@ -27,14 +30,20 @@ mk-target-dir:
 
 # build rules
 
-$(BUILD_DIR)/main: main.cpp ray-tracing.h ray-tracing-util.h intersect.h vec3.h optical-flow.h
-	g++ -O3 -march=native -std=c++17 -o $(BUILD_DIR)/ray-tracing-optical-flow main.cpp  -lm -lpthread -lX11 -ljpeg -lpng
+$(BUILD_DIR)/$(TEST_CASE)-base: main.cpp ray-tracing.h ray-tracing-util.h intersect.h vec3.h optical-flow.h
+	g++ -O3 -march=native -std=c++17 -o $(BUILD_DIR)/$(TEST_CASE)-base main.cpp  -lm -lpthread -lX11 -ljpeg -lpng
+
+$(BUILD_DIR)/$(TEST_CASE)-omp-host: main.cpp ray-tracing.h ray-tracing-util.h intersect.h vec3.h optical-flow.h
+	g++ -O3 -march=native -std=c++17 -fopenmp -o $(BUILD_DIR)/$(TEST_CASE)-omp-host main.cpp  -lm -lpthread -lX11 -ljpeg -lpng
 
 
 # aliases without build directory
 
-.PHONY: main
-main: $(BUILD_DIR)/main
+.PHONY: $(TEST_CASE)-base
+$(TEST_CASE)-base: $(BUILD_DIR)/$(TEST_CASE)-base
+
+.PHONY: $(TEST_CASE)-omp-host
+$(TEST_CASE)-omp-host: $(BUILD_DIR)/$(TEST_CASE)-omp-host
 
 
 # automated benchmark target
@@ -42,7 +51,13 @@ main: $(BUILD_DIR)/main
 .PHONY: bench
 bench: all
 	@echo "Base:"
-	$(BUILD_DIR)/ray-tracing-optical-flow $(PARAMETERS)
+	$(BUILD_DIR)/$(TEST_CASE)-base $(PARAMETERS)
+	#pnmtopng result.pnm > result-base.png
+	#rm result.pnm
+	#python3 convertToImage.py --input result.raw --output result-base-color.png --width $(NX) --height $(NY)
+	@echo ""
+	@echo "OpenMP Host:"
+	$(BUILD_DIR)/$(TEST_CASE)-omp-host $(PARAMETERS)
 	#pnmtopng result.pnm > result-base.png
 	#rm result.pnm
 	#python3 convertToImage.py --input result.raw --output result-base-color.png --width $(NX) --height $(NY)
