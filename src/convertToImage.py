@@ -19,6 +19,11 @@ num_color_channels = 3  # Assuming 3 channels for RGB (Red, Green, Blue)
 
 # Convert the raw data to a NumPy array of bytes
 data_array = np.frombuffer(raw_data, dtype=np.float32)
+min, max = min(data_array), max(data_array)
+scale = (max - min)
+if 0 == scale:
+    scale = 1
+data_array = (data_array - min) / scale
 
 # Reshape the data array to match the image dimensions and channels
 data_array = data_array.reshape((args.height, args.width, num_color_channels))
