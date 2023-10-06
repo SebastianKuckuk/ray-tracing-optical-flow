@@ -11,13 +11,15 @@
 
 
 void parseCLA(int argc, char *const *argv, size_t &numLevels, size_t &supersampling, size_t &mgIterations,
-              double &tStart, double &dt, size_t &numTimeSteps, size_t &numReps) {
+              double &tStart, double &dt, size_t &numTimeSteps, size_t &numReps, bool printImages) {
     // default values
     numLevels = 10;
     supersampling = 2;
     mgIterations = 10;
     dt = 1e-2;
     numTimeSteps = 4;
+    numReps = 1;
+    printImages = false;
 
     // override with command line arguments
     int i = 1;
@@ -33,6 +35,9 @@ void parseCLA(int argc, char *const *argv, size_t &numLevels, size_t &supersampl
     ++i;
     if (argc > i) numReps = atoi(argv[i]);
     ++i;
+    if (argc > i) printImages = atoi(argv[i]);
+    ++i;
+
 
     int mpiRank;
     MPI_Comm_rank(MPI_COMM_WORLD, &mpiRank);
@@ -46,7 +51,8 @@ int main(int argc, char *argv[]) {
     size_t numLevels, supersampling, mgIterations;
     double tStart, dt;
     size_t numTimeSteps, numReps;
-    parseCLA(argc, argv, numLevels, supersampling, mgIterations, tStart, dt, numTimeSteps, numReps);
+    bool printImages;
+    parseCLA(argc, argv, numLevels, supersampling, mgIterations, tStart, dt, numTimeSteps, numReps, printImages);
 
     size_t nxOF = (1u << (numLevels - 1)) + 2;
     size_t nyOF = (1u << (numLevels - 1)) + 2;
@@ -161,15 +167,17 @@ int main(int argc, char *argv[]) {
             }
 
             // print images
-            if (tIt < numTimeSteps) {
-                std::stringstream filename;
-                filename << "../images/ray-tracing-" << std::setw(5) << std::setfill('0') << std::right << t / dt << ".raw";
-                printImage(nxOF, nyOF, img0, filename.str());
-            }
-            if (tIt > 0) {
-                std::stringstream filename;
-                filename << "../images/optical-flow-" << std::setw(5) << std::setfill('0') << std::right << t / dt << ".raw";
-                printImage(nxOF, nyOF, mgSolU[numLevels - 1], mgSolV[numLevels - 1], filename.str());
+            if (printImages) {
+                if (tIt < numTimeSteps) {
+                    std::stringstream filename;
+                    filename << "../images/ray-tracing-" << std::setw(5) << std::setfill('0') << std::right << t / dt << ".raw";
+                    printImage(nxOF, nyOF, img0, filename.str());
+                }
+                if (tIt > 0) {
+                    std::stringstream filename;
+                    filename << "../images/optical-flow-" << std::setw(5) << std::setfill('0') << std::right << t / dt << ".raw";
+                    printImage(nxOF, nyOF, mgSolU[numLevels - 1], mgSolV[numLevels - 1], filename.str());
+                }
             }
         }
 
