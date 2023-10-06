@@ -11,7 +11,8 @@ struct Timer {
     std::chrono::time_point<std::chrono::steady_clock> startTime;
     double lastElapsed = 0.;
     size_t numElapsed = 0;
-    double sumElapsed, minElapsed, maxElapsed;
+    double sumElapsed = 0;
+    double minElapsed, maxElapsed;
 
     inline explicit Timer(const std::string &name_) : name(name_) {}
 
@@ -20,7 +21,8 @@ struct Timer {
     }
 
     inline void stop() {
-        std::chrono::duration<double> elapsed = std::chrono::steady_clock::now() - startTime;
+        auto stopTime = std::chrono::steady_clock::now();
+        std::chrono::duration<double> elapsed = stopTime - startTime;
         lastElapsed = elapsed.count();
 
         sumElapsed += lastElapsed;
@@ -36,7 +38,7 @@ struct Timer {
     }
 
     inline double meanElapsed() {
-        return sumElapsed / numElapsed;
+        return 0 == numElapsed ? 0. : sumElapsed / numElapsed;
     }
 
     inline void print(int mpiRank) {
