@@ -11,7 +11,7 @@
 
 
 void parseCLA(int argc, char *const *argv, size_t &numLevels, size_t &supersampling, size_t &mgIterations,
-              double &tStart, double &dt, size_t &numTimeSteps, size_t &numReps, bool printImages) {
+              double &tStart, double &dt, size_t &numTimeSteps, size_t &numReps, bool &printImages) {
     // default values
     numLevels = 10;
     supersampling = 2;
