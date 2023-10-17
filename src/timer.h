@@ -4,6 +4,12 @@
 #include <iomanip>
 #include <iostream>
 
+#ifdef LIKWID_PERFMON
+
+#   include <likwid-marker.h>
+
+#endif
+
 
 struct Timer {
     std::string name;
@@ -12,15 +18,25 @@ struct Timer {
     double lastElapsed = 0.;
     size_t numElapsed = 0;
     double sumElapsed = 0;
-    double minElapsed, maxElapsed;
+    double minElapsed = 0, maxElapsed = 0;
 
-    inline explicit Timer(const std::string &name_) : name(name_) {}
+    inline explicit Timer(const std::string &name_) : name(name_) {
+#ifdef LIKWID_PERFMON
+        LIKWID_MARKER_REGISTER(name.c_str());
+#endif
+    }
 
     inline void start() {
         startTime = std::chrono::steady_clock::now();
+#ifdef LIKWID_PERFMON
+        LIKWID_MARKER_START(name.c_str());
+#endif
     }
 
     inline void stop() {
+#ifdef LIKWID_PERFMON
+        LIKWID_MARKER_STOP(name.c_str());
+#endif
         auto stopTime = std::chrono::steady_clock::now();
         std::chrono::duration<double> elapsed = stopTime - startTime;
         lastElapsed = elapsed.count();

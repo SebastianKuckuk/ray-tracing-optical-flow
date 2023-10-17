@@ -48,6 +48,10 @@ void parseCLA(int argc, char *const *argv, size_t &numLevels, size_t &supersampl
 int main(int argc, char *argv[]) {
     MPI_Init(&argc, &argv);
 
+#ifdef LIKWID_PERFMON
+    LIKWID_MARKER_INIT;
+#endif
+
     size_t numLevels, supersampling, mgIterations;
     double tStart, dt;
     size_t numTimeSteps, numReps;
@@ -216,6 +220,10 @@ int main(int argc, char *argv[]) {
     free(spheres);
 
     MPI_Finalize();
+
+#ifdef LIKWID_PERFMON
+    LIKWID_MARKER_CLOSE;
+#endif
 
     return 0;
 }
