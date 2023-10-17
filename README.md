@@ -38,12 +38,13 @@ as well as converting the written images to png and generating a video from them
 
 ## Example Usage
 
-On Fritz
+### Basic Timing on Fritz
 
 ```bash
 # load required modules
 module load git
-module load openmpi/4.1.2-gcc11.2.0 
+module load openmpi/4.1.2-gcc11.2.0
+module load likwid
 
 # clone the git
 git clone https://gitlab.rrze.fau.de/sisekuck/ray-tracing-optical-flow.git
@@ -65,3 +66,21 @@ srun -n 72 ../build/ray-tracing-optical-flow-base 12 2 10 0.005 4 12 0
 # revoke node allocation
 exit
 ```
+
+### Performance Measurement on Fritz with LIKWID
+
+For added performance measurements, the same steps as above need to be done except allocating the job and executing the binary.
+This is replaced with
+
+```bash
+#allocate the job with `hwperf` constraint to enable profiling
+salloc --partition singlenode --nodes=1 --time 01:00:00 --constraint=hwperf
+
+# for serial measurements ...
+likwid-perfctr -g MEM_DP -C S0:0 -m ../build/ray-tracing-optical-flow-base-prof 12 2 10 0.005 4 12 0
+
+# ... or for parallel execution
+likwid-mpirun -n 72 -g MEM_DP -m ../build/ray-tracing-optical-flow-base-prof 12 2 10 0.005 4 12 0
+```
+
+Options can be tuned for [`likwid-perfctr`](https://github.com/RRZE-HPC/likwid/wiki/likwid-perfctr#options) and [`likwid-mpirun`](https://github.com/RRZE-HPC/likwid/wiki/Likwid-Mpirun#options)
