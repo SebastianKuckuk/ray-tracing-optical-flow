@@ -50,8 +50,6 @@ int numSpheres;
 
 
 inline void initSpheres() {
-    numSpheres = 48;
-    spheres = static_cast<Sphere *>(malloc(numSpheres * sizeof(Sphere)));
     std::mt19937 randGen(0);// constant seed
     std::uniform_real_distribution<> posXZDistribution(-boundaryExtentXZ, boundaryExtentXZ);
     std::uniform_real_distribution<> posYDistribution(-boundaryExtentY, boundaryExtentY);
