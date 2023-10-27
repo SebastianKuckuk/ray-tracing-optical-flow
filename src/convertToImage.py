@@ -31,25 +31,25 @@ data_array = data_array.reshape((args.height, args.width, num_color_channels)).c
 if 'off' == args.scale:
     pass  # nothing to do
 elif 'fixed' == args.scale:
-    print(args.scaleMin, args.scaleMax)
+    # print(args.scaleMin, args.scaleMax)
     data_array = (data_array - args.scaleMin) / (args.scaleMax - args.scaleMin)
 elif 'auto' == args.scale:
     min_val, max_val = data_array.min(), data_array.max()
-    print(min_val, max_val)
+    # print(min_val, max_val)
     scale = (max_val - min_val)
     data_array = (data_array - min_val) / (scale if scale != 0 else 1)
 elif 'symAuto' == args.scale:
     extent = max(-data_array.min(), data_array.max())
-    print(extent)
+    # print(extent)
     scale = 2 * extent
     data_array = (data_array + extent) / (scale if scale != 0 else 1)
 elif 'absFixed' == args.scale:
     scale = args.scaleMax
-    print(scale)
+    # print(scale)
     data_array = abs(data_array) / (scale if scale != 0 else 1)
 elif 'absAuto' == args.scale:
     scale = abs(data_array).max()
-    print(scale)
+    # print(scale)
     data_array = abs(data_array) / (scale if scale != 0 else 1)
 else:
     raise Exception(f'Invalid scaling mode {args.scale}')
