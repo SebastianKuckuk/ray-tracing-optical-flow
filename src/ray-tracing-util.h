@@ -17,7 +17,7 @@ constexpr auto boundaryExtentXZ = 2.; // extent in each direction (positive & ne
 constexpr auto boundaryExtentY = 2 * boundaryExtentXZ;
 
 // color or black & wight
-#define USE_COLOR
+//#define USE_COLOR
 
 
 struct Ray {
