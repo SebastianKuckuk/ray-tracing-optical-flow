@@ -64,7 +64,7 @@ int main(int argc, char *argv[]) {
     auto nyRT = supersampling * nyOF;
 
     // allocate for ray tracer
-    auto img = new unsigned char[nxRT * nyRT * sizeof(Color) / sizeof(double)];
+    auto img = new Color[nxRT * nyRT];
 
     // allocate for optical flow solver
     auto img0 = new double[nxOF * nyOF];
@@ -98,7 +98,7 @@ int main(int argc, char *argv[]) {
     MPI_Comm_size(MPI_COMM_WORLD, &numRanks);
 
     MPI_Request mpiReq;
-    auto mpiBuffer = new unsigned char[nxRT * nyRT * sizeof(Color) / sizeof(double)];
+    auto mpiBuffer = new Color[nxRT * nyRT];
 
     // allocate spheres
     numSpheres = 48;
@@ -119,7 +119,7 @@ int main(int argc, char *argv[]) {
             if (numTimeSteps == tIt && !(numReps - 1 == rep && numRanks - 1 == mpiRank)) {
                 timerMPIRecv.start();
                 {
-                    MPI_Recv(img, nxRT * nyRT, MPI_UNSIGNED_CHAR, (mpiRank + numRanks + 1) % numRanks, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+                    MPI_Recv(img, nxRT * nyRT * sizeof(Color) / sizeof(double), MPI_DOUBLE, (mpiRank + numRanks + 1) % numRanks, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
                 }
                 timerMPIRecv.stop();
             } else {
@@ -133,8 +133,8 @@ int main(int argc, char *argv[]) {
             if (0 == tIt && !(0 == mpiRank && 0 == rep)) {
                 timerMPISend.start();
                 {
-                    memcpy(mpiBuffer, img, nxRT * nyRT * sizeof(unsigned char) * sizeof(Color) / sizeof(double));
-                    MPI_Isend(mpiBuffer, nxRT * nyRT, MPI_UNSIGNED_CHAR, (mpiRank + numRanks - 1) % numRanks, 0, MPI_COMM_WORLD, &mpiReq);
+                    memcpy(mpiBuffer, img, nxRT * nyRT * sizeof(Color));
+                    MPI_Isend(mpiBuffer, nxRT * nyRT * sizeof(Color) / sizeof(double), MPI_DOUBLE, (mpiRank + numRanks - 1) % numRanks, 0, MPI_COMM_WORLD, &mpiReq);
                 }
                 timerMPISend.stop();
             }

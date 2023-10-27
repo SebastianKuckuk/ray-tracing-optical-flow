@@ -52,7 +52,7 @@ Color trace(const Ray &ray, int numBounces) {
 }
 
 
-inline void createImage(size_t nx, size_t ny, double t, unsigned char *__restrict__ img) {
+inline void createImage(size_t nx, size_t ny, double t, Color *__restrict__ img) {
 #pragma omp parallel for schedule (static) collapse(2)
     for (size_t j = 0; j < ny; ++j) {
         for (size_t i = 0; i < nx; ++i) {
@@ -83,13 +83,10 @@ inline void createImage(size_t nx, size_t ny, double t, unsigned char *__restric
             color.x = std::min(1., std::max(0., color.x));
             color.y = std::min(1., std::max(0., color.y));
             color.z = std::min(1., std::max(0., color.z));
-            img[(j * nx + i) * 3 + 0] = (unsigned char) (255 * color.x);
-            img[(j * nx + i) * 3 + 1] = (unsigned char) (255 * color.y);
-            img[(j * nx + i) * 3 + 2] = (unsigned char) (255 * color.z);
 #else
             color = std::min(1., std::max(0., color));
-            img[j * nx + i] = (unsigned char) (255 * color);
 #endif
+            img[j * nx + i] = color;
         }
     }
 }

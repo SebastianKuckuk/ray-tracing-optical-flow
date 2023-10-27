@@ -4,6 +4,8 @@ struct Vec3 {
     double x, y, z;
 
     // Constructor
+    Vec3() {}
+
     Vec3(double xVal, double yVal, double zVal)
             : x(xVal), y(yVal), z(zVal) {}
 

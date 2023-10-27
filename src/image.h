@@ -4,7 +4,7 @@
 #include <cstring>
 
 
-void mapImages(size_t nxOF, size_t nyOF, size_t nxRT, const unsigned char *img, double *img0, size_t supersampling) {
+void mapImages(size_t nxOF, size_t nyOF, size_t nxRT, const Color *img, double *img0, size_t supersampling) {
 #pragma omp parallel for schedule (static) collapse(2)
     for (size_t j = 0; j < nyOF; ++j)
         for (size_t i = 0; i < nxOF; ++i) {
@@ -13,9 +13,9 @@ void mapImages(size_t nxOF, size_t nyOF, size_t nxRT, const unsigned char *img, 
             for (size_t jOff = 0; jOff < supersampling; ++jOff) {
                 for (size_t iOff = 0; iOff < supersampling; ++iOff) {
 #ifdef USE_COLOR
-                    for (auto dim = 0; dim < 3; ++dim)
-                        img0[j * nxOF + i] += img[((supersampling * j + jOff) * nxRT + supersampling * i + iOff) * 3 + dim];
-                    img0[j * nxOF + i] /= 3;
+                    img0[j * nxOF + i] += 1. / 3. * (img[(supersampling * j + jOff) * nxRT + supersampling * i + iOff].x
+                                                     + img[(supersampling * j + jOff) * nxRT + supersampling * i + iOff].y
+                                                     + img[(supersampling * j + jOff) * nxRT + supersampling * i + iOff].z);
 #else
                     img0[j * nxOF + i] += img[(supersampling * j + jOff) * nxRT + supersampling * i + iOff];
 #endif
@@ -23,7 +23,6 @@ void mapImages(size_t nxOF, size_t nyOF, size_t nxRT, const unsigned char *img, 
             }
 
             img0[j * nxOF + i] /= supersampling * supersampling;
-            img0[j * nxOF + i] /= 255.;
         }
 }
 
@@ -31,7 +30,6 @@ void mapImages(size_t nxOF, size_t nyOF, size_t nxRT, const unsigned char *img, 
 void printImage(size_t nx, size_t ny, const double *const img, const std::string &filename) {
     std::ofstream outStream(filename, std::iostream::binary);
     for (size_t j = 1; j < ny - 1; ++j) {
-//    for (size_t j = ny - 2; j > 0; --j) {
         for (size_t i = 1; i < nx - 1; ++i) {
             for (auto dim = 0; dim < 3; ++dim) {
                 auto c = (float) img[j * nx + i];
@@ -47,7 +45,6 @@ void printImage(size_t nx, size_t ny, const double *const img, const std::string
 void printImage(size_t nx, size_t ny, const double *const imgU, const double *const imgV, const std::string &filename) {
     std::ofstream outStream(filename, std::iostream::binary);
     for (size_t j = 1; j < ny - 1; ++j) {
-//    for (size_t j = ny - 2; j > 0; --j) {
         for (size_t i = 1; i < nx - 1; ++i) {
             float c;
             c = (float) (1. * imgU[j * nx + i] + 0.);
