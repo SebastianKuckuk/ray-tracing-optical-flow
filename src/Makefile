@@ -2,7 +2,9 @@
 
 TEST_CASE = ray-tracing-optical-flow
 BUILD_DIR = ../build
+DATA_DIR  = ../imageData
 IMAGE_DIR = ../images
+VIDEO_DIR = ../videos
 
 
 # default benchmark parameters
@@ -36,8 +38,7 @@ all: mk-target-dir $(targets)
 
 
 mk-target-dir:
-	mkdir -p $(BUILD_DIR)
-	mkdir -p $(IMAGE_DIR)
+	mkdir -p $(BUILD_DIR) $(DATA_DIR) $(IMAGE_DIR) $(VIDEO_DIR)
 
 
 # build rules
@@ -88,11 +89,14 @@ bench: all
 #	@echo ""
 
 	if [ 0 != ${PRINT_IMG} ] ; then \
-		for img in $(IMAGE_DIR)/*.raw ; do \
-			python3 convertToImage.py --input $${img} --output $${img}.png --width $(NX) --height $(NY) ; \
+		for img in $(DATA_DIR)/ray-tracing-*.raw ; do \
+			python3 convertToImage.py --input $${img} --output $(IMAGE_DIR)/$$(basename $$img .raw).png --width $(NX) --height $(NY) --scale off ; \
 		done ; \
-		ffmpeg -y -framerate 30 -pattern_type glob -i '../images/optical-flow-*.png' -c:v libx264 -pix_fmt yuv420p ../images/optical-flow.mp4 ; \
-		ffmpeg -y -framerate 30 -pattern_type glob -i '../images/ray-tracing-*.png' -c:v libx264 -pix_fmt yuv420p ../images/ray-tracing.mp4 ; \
+		for img in $(DATA_DIR)/optical-flow-*.raw ; do \
+			python3 convertToImage.py --input $${img} --output $(IMAGE_DIR)/$$(basename $$img .raw).png --width $(NX) --height $(NY) --scale absAuto ; \
+		done ; \
+		ffmpeg -y -framerate 30 -pattern_type glob -i '$(IMAGE_DIR)/ray-tracing-*.png'  -c:v libx264 -pix_fmt yuv420p $(VIDEO_DIR)/ray-tracing.mp4 ; \
+		ffmpeg -y -framerate 30 -pattern_type glob -i '$(IMAGE_DIR)/optical-flow-*.png' -c:v libx264 -pix_fmt yuv420p $(VIDEO_DIR)/optical-flow.mp4 ; \
 	fi
 # clean target
 

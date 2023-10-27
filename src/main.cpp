@@ -178,12 +178,12 @@ int main(int argc, char *argv[]) {
                     mapImageToColor(nxOF, nyOF, nxRT, imgRT, imgPrintRT, supersampling);
 
                     std::stringstream filename;
-                    filename << "../images/ray-tracing-" << std::setw(5) << std::setfill('0') << std::right << t / dt << ".raw";
+                    filename << "../imageData/ray-tracing-" << std::setw(5) << std::setfill('0') << std::right << t / dt << ".raw";
                     printImage(nxOF, nyOF, imgPrintRT, filename.str());
                 }
                 if (tIt > 0) {
                     std::stringstream filename;
-                    filename << "../images/optical-flow-" << std::setw(5) << std::setfill('0') << std::right << t / dt << ".raw";
+                    filename << "../imageData/optical-flow-" << std::setw(5) << std::setfill('0') << std::right << t / dt << ".raw";
                     printImage(nxOF, nyOF, mgSolU[numLevels - 1], mgSolV[numLevels - 1], filename.str());
                 }
             }
