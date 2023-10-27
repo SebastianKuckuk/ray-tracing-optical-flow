@@ -8,21 +8,21 @@ void mapImageToDouble(size_t nxOF, size_t nyOF, size_t nxRT, const Color *imgSrc
 #pragma omp parallel for schedule (static) collapse(2)
     for (size_t j = 0; j < nyOF; ++j)
         for (size_t i = 0; i < nxOF; ++i) {
-            imgDest[j * nxOF + i] = 0;
+            double acc = 0;
 
             for (size_t jOff = 0; jOff < supersampling; ++jOff) {
                 for (size_t iOff = 0; iOff < supersampling; ++iOff) {
 #ifdef USE_COLOR
-                    imgDest[j * nxOF + i] += 1. / 3. * (imgSrc[(supersampling * j + jOff) * nxRT + supersampling * i + iOff].x
-                                                        + imgSrc[(supersampling * j + jOff) * nxRT + supersampling * i + iOff].y
-                                                        + imgSrc[(supersampling * j + jOff) * nxRT + supersampling * i + iOff].z);
+                    acc += 1. / 3. * (imgSrc[(supersampling * j + jOff) * nxRT + supersampling * i + iOff].x
+                                      + imgSrc[(supersampling * j + jOff) * nxRT + supersampling * i + iOff].y
+                                      + imgSrc[(supersampling * j + jOff) * nxRT + supersampling * i + iOff].z);
 #else
-                    imgDest[j * nxOF + i] += imgSrc[(supersampling * j + jOff) * nxRT + supersampling * i + iOff];
+                    acc += imgSrc[(supersampling * j + jOff) * nxRT + supersampling * i + iOff];
 #endif
                 }
             }
 
-            imgDest[j * nxOF + i] /= supersampling * supersampling;
+            imgDest[j * nxOF + i] = acc / (supersampling * supersampling);
         }
 }
 
@@ -31,13 +31,13 @@ void mapImageToColor(size_t nxOF, size_t nyOF, size_t nxRT, const Color *imgSrc,
 #pragma omp parallel for schedule (static) collapse(2)
     for (size_t j = 0; j < nyOF; ++j) {
         for (size_t i = 0; i < nxOF; ++i) {
-            imgDest[j * nxOF + i] = Color{0};
+            Color acc{0};
 
             for (size_t jOff = 0; jOff < supersampling; ++jOff)
                 for (size_t iOff = 0; iOff < supersampling; ++iOff)
-                    imgDest[j * nxOF + i] += imgSrc[(supersampling * j + jOff) * nxRT + supersampling * i + iOff];
+                    acc += imgSrc[(supersampling * j + jOff) * nxRT + supersampling * i + iOff];
 
-            imgDest[j * nxOF + i] = imgDest[j * nxOF + i] / (supersampling * supersampling);
+            imgDest[j * nxOF + i] = acc / (supersampling * supersampling);
         }
     }
 }
@@ -48,7 +48,8 @@ void printImage(size_t nx, size_t ny, const Color *const img, const std::string 
     for (size_t j = 1; j < ny - 1; ++j) {
         for (size_t i = 1; i < nx - 1; ++i) {
 #ifdef USE_COLOR
-            auto c = (float) img[j * nx + i].x;
+            float c;
+            c = (float) img[j * nx + i].x;
             outStream.write(reinterpret_cast<const char *>(&c), sizeof(float));
             c = (float) img[j * nx + i].y;
             outStream.write(reinterpret_cast<const char *>(&c), sizeof(float));
