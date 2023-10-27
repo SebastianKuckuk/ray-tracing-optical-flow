@@ -3,7 +3,7 @@
 struct Vec3 {
     double x, y, z;
 
-    // Constructor
+    // constructors
     Vec3() {}
 
     Vec3(double xVal, double yVal, double zVal)
@@ -12,17 +12,15 @@ struct Vec3 {
     explicit Vec3(double scalar)
             : x(scalar), y(scalar), z(scalar) {}
 
-    // Addition operator
+    // basic operators
     Vec3 operator+(const Vec3 &other) const {
         return {x + other.x, y + other.y, z + other.z};
     }
 
-    // Subtraction operator
     Vec3 operator-(const Vec3 &other) const {
         return {x - other.x, y - other.y, z - other.z};
     }
 
-    // Scalar multiplication operator
     Vec3 operator*(double scalar) const {
         return {x * scalar, y * scalar, z * scalar};
     }
@@ -31,7 +29,11 @@ struct Vec3 {
         return {x * other.x, y * other.y, z * other.z};
     }
 
-    // Compound assignment addition operator (+=)
+    Vec3 operator/(double scalar) const {
+        return {x / scalar, y / scalar, z / scalar};
+    }
+
+    // compound assignment operators
     Vec3 &operator+=(const Vec3 &other) {
         x += other.x;
         y += other.y;
@@ -39,7 +41,6 @@ struct Vec3 {
         return *this;
     }
 
-    // Compound assignment subtraction operator (-=)
     Vec3 &operator-=(const Vec3 &other) {
         x -= other.x;
         y -= other.y;
@@ -47,7 +48,6 @@ struct Vec3 {
         return *this;
     }
 
-    // Compound assignment scalar multiplication operator (*=)
     Vec3 &operator*=(double scalar) {
         x *= scalar;
         y *= scalar;
@@ -55,35 +55,26 @@ struct Vec3 {
         return *this;
     }
 
-    // Scalar division operator
-    Vec3 operator/(double scalar) const {
-        if (scalar != 0.0) {
-            return {x / scalar, y / scalar, z / scalar};
-        } else {
-            // Handle division by zero gracefully or throw an exception
-            throw std::runtime_error("Division by zero");
-        }
+    Vec3 &operator/=(double scalar) {
+        x /= scalar;
+        y /= scalar;
+        z /= scalar;
+        return *this;
     }
 
-    // Dot product
+    // dot product with another vector
     [[nodiscard]] double dot(const Vec3 &other) const {
         return x * other.x + y * other.y + z * other.z;
     }
 
-    // Magnitude (length) of the vector
+    // magnitude (length) of the vector
     [[nodiscard]] double magnitude() const {
         return std::sqrt(x * x + y * y + z * z);
     }
 
-    // Normalize the vector (make it a unit vector)
+    // normalize the vector (make it a unit vector)
     [[nodiscard]] Vec3 normalize() const {
-        double mag = magnitude();
-        if (mag != 0.0) {
-            return *this / mag;
-        } else {
-            // Handle zero magnitude gracefully or throw an exception
-            throw std::runtime_error("Normalization of zero vector");
-        }
+        return *this / magnitude();
     }
 
     [[nodiscard]] Vec3 rotate(double alpha, double beta, double gamma) const {
@@ -112,17 +103,18 @@ struct Vec3 {
         };
     }
 
-    // Print the vector
+    // print to std out
     void print() const {
         std::cout << "(" << x << ", " << y << ", " << z << ")" << std::endl;
     }
 };
 
+// free functions
 double dot(const Vec3 &a, const Vec3 &b) {
     return a.x * b.x + a.y * b.y + a.z * b.z;
 }
 
-// Scalar-vector multiplication as a free function
+// scalar times vector
 Vec3 operator*(double scalar, const Vec3 &vec) {
     return {scalar * vec.x, scalar * vec.y, scalar * vec.z};
 }
