@@ -1,8 +1,8 @@
 #pragma once
 
-#include <iostream>
-#include <cmath>
 #include <algorithm>
+#include <cmath>
+#include <iostream>
 #include <random>
 
 #include "vec3.h"

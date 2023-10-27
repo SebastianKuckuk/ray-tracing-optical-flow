@@ -1,7 +1,7 @@
 #pragma once
 
-#include <fstream>
 #include <cstring>
+#include <fstream>
 
 
 void mapImageToDouble(size_t nxOF, size_t nyOF, size_t nxRT, const Color *imgSrc, double *imgDest, size_t supersampling) {

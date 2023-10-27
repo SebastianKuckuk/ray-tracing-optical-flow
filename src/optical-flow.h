@@ -1,6 +1,5 @@
 #pragma once
 
-
 constexpr auto ompThreshold = 8 * 1024; // number of work elements required to enable OpenMP parallelization
 
 constexpr double regularization = 1.6e-3; // alpha**2 in the original formulation -> name clash with CG alpha

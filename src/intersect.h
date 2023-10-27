@@ -2,6 +2,7 @@
 
 #include "ray-tracing-util.h"
 
+
 bool intersect(const Ray &ray, double &minDist, int &iHit) {
     /**
      * For
