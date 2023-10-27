@@ -93,11 +93,14 @@ bench: all
 			python3 convertToImage.py --input $${img} --output $(IMAGE_DIR)/$$(basename $$img .raw).png --width $(NX) --height $(NY) --scale off ; \
 		done ; \
 		for img in $(DATA_DIR)/optical-flow-*.raw ; do \
-			python3 convertToImage.py --input $${img} --output $(IMAGE_DIR)/$$(basename $$img .raw).png --width $(NX) --height $(NY) --scale absAuto ; \
+			python3 convertToImage.py --input $${img} --output $(IMAGE_DIR)/$$(basename $$img .raw).png --width $(NX) --height $(NY) --scale absFixed --scaleMax 7 ; \
 		done ; \
 		ffmpeg -y -framerate 30 -pattern_type glob -i '$(IMAGE_DIR)/ray-tracing-*.png'  -c:v libx264 -pix_fmt yuv420p $(VIDEO_DIR)/ray-tracing.mp4 ; \
 		ffmpeg -y -framerate 30 -pattern_type glob -i '$(IMAGE_DIR)/optical-flow-*.png' -c:v libx264 -pix_fmt yuv420p $(VIDEO_DIR)/optical-flow.mp4 ; \
+		ffmpeg -y -i $(VIDEO_DIR)/ray-tracing.mp4 -loop 0 -vf "fps=30,scale=256:-1:flags=lanczos,split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse" $(VIDEO_DIR)/ray-tracing.gif ; \
+		ffmpeg -y -i $(VIDEO_DIR)/optical-flow.mp4 -loop 0 -vf "fps=30,scale=256:-1:flags=lanczos,split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse" $(VIDEO_DIR)/optical-flow.gif ; \
 	fi
+
 # clean target
 
 .PHONY: clean
