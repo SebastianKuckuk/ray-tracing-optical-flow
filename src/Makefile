@@ -91,8 +91,8 @@ bench: all
 		for img in $(IMAGE_DIR)/*.raw ; do \
 			python3 convertToImage.py --input $${img} --output $${img}.png --width $(NX) --height $(NY) ; \
 		done ; \
-		ffmpeg -framerate 30 -pattern_type glob -i '../images/optical-flow-*.png' -c:v libx264 -pix_fmt yuv420p ../images/optical-flow.mp4 ; \
-		ffmpeg -framerate 30 -pattern_type glob -i '../images/ray-tracing-*.png' -c:v libx264 -pix_fmt yuv420p ../images/ray-tracing.mp4 ; \
+		ffmpeg -y -framerate 30 -pattern_type glob -i '../images/optical-flow-*.png' -c:v libx264 -pix_fmt yuv420p ../images/optical-flow.mp4 ; \
+		ffmpeg -y -framerate 30 -pattern_type glob -i '../images/ray-tracing-*.png' -c:v libx264 -pix_fmt yuv420p ../images/ray-tracing.mp4 ; \
 	fi
 # clean target
 
