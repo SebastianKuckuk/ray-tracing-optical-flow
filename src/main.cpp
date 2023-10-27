@@ -104,7 +104,8 @@ int main(int argc, char *argv[]) {
     // allocate spheres
     numSpheres = 32;
     spheres = static_cast<Sphere *>(malloc(numSpheres * sizeof(Sphere)));
-    initSpheres();
+    if (0 == mpiRank)
+        initSpheres();
     MPI_Bcast(spheres, numSpheres * (sizeof(Sphere) / sizeof(double)), MPI_DOUBLE, 0, MPI_COMM_WORLD);
 
     // prepare timers
