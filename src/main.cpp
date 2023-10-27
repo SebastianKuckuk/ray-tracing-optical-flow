@@ -102,7 +102,7 @@ int main(int argc, char *argv[]) {
     auto mpiBuffer = new Color[nxRT * nyRT];
 
     // allocate spheres
-    numSpheres = 48;
+    numSpheres = 32;
     spheres = static_cast<Sphere *>(malloc(numSpheres * sizeof(Sphere)));
     initSpheres();
     MPI_Bcast(spheres, numSpheres * (sizeof(Sphere) / sizeof(double)), MPI_DOUBLE, 0, MPI_COMM_WORLD);

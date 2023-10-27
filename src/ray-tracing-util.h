@@ -53,7 +53,7 @@ inline void initSpheres() {
     std::mt19937 randGen(0);// constant seed
     std::uniform_real_distribution<> posXZDistribution(-boundaryExtentXZ, boundaryExtentXZ);
     std::uniform_real_distribution<> posYDistribution(-boundaryExtentY, boundaryExtentY);
-    std::uniform_real_distribution<> rDistribution(0.3, 0.6);
+    std::uniform_real_distribution<> rDistribution(0.35, 0.7);
     for (auto s = 0; s < numSpheres; ++s) {
         auto pos = Vec3{posXZDistribution(randGen), posYDistribution(randGen), posXZDistribution(randGen)};
         auto r = rDistribution(randGen);
@@ -70,7 +70,7 @@ inline void initSpheres() {
                                  (spheres[sCmp].pos - pos).magnitude(),
                                  (spheres[sCmp].pos - pos + Vec3{0., 2 * boundaryExtentY, 0.}).magnitude(),
                                  (spheres[sCmp].pos - pos + Vec3{0., -2 * boundaryExtentY, 0.}).magnitude()
-                         }) < 1.25 * (std::sqrt(spheres[sCmp].rSq) + r))
+                         }) < 0.1 + 1. * (std::sqrt(spheres[sCmp].rSq) + r))
                 invalidPos = true;
 
         if (invalidPos) {
@@ -78,6 +78,10 @@ inline void initSpheres() {
             continue;
         }
 
+        // diffuse material w/o reflection
+        //spheres[s] = {pos, pos, r * r, Color{1.}, Color{0.}, 32, Color{0.}};
+
+        // highly reflective material
         spheres[s] = {pos, pos, r * r, Color{0.5}, Color{0.8}, 32, Color{0.8}};
     }
 }
@@ -105,9 +109,9 @@ Light lights[] = {
 };
 #else
 Light lights[] = {
-        {{-16., 0., -16.}, 1. / 3.},
-        {{16.,  0., -16.}, 1. / 3.},
-        {{0.,   0., 16.},  1. / 3.}
+        {{-16., 0., -16.}, 2. / 3.},
+        {{16.,  0., -16.}, 2. / 3.},
+        {{0.,   0., 16.},  2. / 3.}
 };
 #endif
 
