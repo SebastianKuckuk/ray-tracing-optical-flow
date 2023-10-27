@@ -196,14 +196,8 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    for (auto timer: {timerRT, timerMap, timerOF, timerMPISend, timerMPIRecv}) {
-        for (auto r = 0; r < numRanks; ++r) {
-            MPI_Barrier(MPI_COMM_WORLD);
-            if (mpiRank == r)
-                timer.print(mpiRank);
-            MPI_Barrier(MPI_COMM_WORLD); // TODO: remove
-        }
-    }
+    for (auto timer: {timerRT, timerOF, timerMap, timerMPISend, timerMPIRecv})
+        timer.gatherAndPrint(mpiRank, numRanks);
 
     // de-allocate MPI
     delete[] mpiBuffer;

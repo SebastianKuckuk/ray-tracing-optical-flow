@@ -67,4 +67,48 @@ struct Timer {
                   << " (total, mean, min, max, timings)"
                   << std::endl;
     }
+
+    inline void gatherAndPrint(int mpiRank, int numRanks) {
+        if (0 != mpiRank) {
+            // simply send data to root
+            MPI_Gather(&numElapsed, 1, MPI_UINT64_T, nullptr, 0, MPI_UINT64_T, 0, MPI_COMM_WORLD);
+            MPI_Gather(&sumElapsed, 1, MPI_DOUBLE, nullptr, 0, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+            MPI_Gather(&minElapsed, 1, MPI_DOUBLE, nullptr, 0, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+            MPI_Gather(&maxElapsed, 1, MPI_DOUBLE, nullptr, 0, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+        } else {
+            // allocate data for gathering data
+            auto numElapsedVec = new size_t[numRanks];
+            auto sumElapsedVec = new double[numRanks];
+            auto minElapsedVec = new double[numRanks];
+            auto maxElapsedVec = new double[numRanks];
+
+            // gather timer data
+            MPI_Gather(&numElapsed, 1, MPI_UINT64_T, numElapsedVec, 1, MPI_UINT64_T, 0, MPI_COMM_WORLD);
+            MPI_Gather(&sumElapsed, 1, MPI_DOUBLE, sumElapsedVec, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+            MPI_Gather(&minElapsed, 1, MPI_DOUBLE, minElapsedVec, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+            MPI_Gather(&maxElapsed, 1, MPI_DOUBLE, maxElapsedVec, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+
+            // impersonate timers from other ranks by overwriting internal state
+            for (auto r = 0; r < numRanks; ++r) {
+                numElapsed = numElapsedVec[r];
+                sumElapsed = sumElapsedVec[r];
+                minElapsed = minElapsedVec[r];
+                maxElapsed = maxElapsedVec[r];
+
+                print(r);
+            }
+
+            // restore original values
+            numElapsed = numElapsedVec[0];
+            sumElapsed = sumElapsedVec[0];
+            minElapsed = minElapsedVec[0];
+            maxElapsed = maxElapsedVec[0];
+
+            // clean up
+            delete[] numElapsedVec;
+            delete[] sumElapsedVec;
+            delete[] minElapsedVec;
+            delete[] maxElapsedVec;
+        }
+    }
 };
