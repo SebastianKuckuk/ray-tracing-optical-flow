@@ -57,19 +57,19 @@ inline void createImage(size_t nx, size_t ny, double t, unsigned char *__restric
     for (size_t j = 0; j < ny; ++j) {
         for (size_t i = 0; i < nx; ++i) {
             // compute screen coordinates
-            auto fov = 90;
+            auto fov = 60;
             auto scale = tan(fov * 0.5 * M_PI / 180);
             auto imageAspectRatio = nx / (double) ny;
 
-            auto origin = Vec3{0., 0., 2.};
-//            auto origin = Vec3{2.1, 1.3, 1.7};
+            auto origin = Vec3{0., 0., 4.};
 
             auto px = (2 * (i + 0.5) / nx - 1) * scale * imageAspectRatio;
             auto py = (1 - 2 * (j + 0.5) / ny) * scale;
             auto direction = Vec3{px, py, -1};
 
             // rotate camera
-            double alpha = t * 2. * M_PI, beta = 0., gamma = -0.25 * M_PI;
+            constexpr auto camSpeed = 1.; // revolutions per second
+            double alpha = 0., beta = t * camSpeed * 2. * M_PI, gamma = 0 * -0.125 * M_PI;
 
             origin = origin.rotate(alpha, beta, gamma);
             direction = direction.rotate(alpha, beta, gamma);
