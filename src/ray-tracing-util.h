@@ -8,13 +8,23 @@
 #include "vec3.h"
 
 
+// speed parameters
+constexpr auto camSpeed = 0.25; // revolutions per second
+constexpr auto sphereSpeed = 1.; // domain heights per second
+
+// boundary parameters for initial sphere placement
+constexpr auto boundaryExtentXZ = 2.; // extent in each direction (positive & negative) in the x- and z-axes
+constexpr auto boundaryExtentY = 2 * boundaryExtentXZ;
+
+// color or black & wight
+//#define USE_COLOR
+
+
 struct Ray {
     Vec3 origin;
     Vec3 direction;
 };
 
-
-//#define USE_COLOR
 
 #ifdef USE_COLOR
 using Color = Vec3;
@@ -37,9 +47,6 @@ struct Sphere {
 
 Sphere *spheres;
 int numSpheres;
-
-constexpr auto boundaryExtentXZ = 2.; // extent in each direction (positive & negative) in the x- and z-axes
-constexpr auto boundaryExtentY = 2 * boundaryExtentXZ;
 
 
 inline void initSpheres() {
@@ -79,7 +86,7 @@ inline void initSpheres() {
 
 inline void updateSpherePositions(double t) {
     for (auto s = 0; s < numSpheres; ++s) {
-        spheres[s].pos.y = spheres[s].initPos.y - t * 2 * boundaryExtentY;
+        spheres[s].pos.y = spheres[s].initPos.y - sphereSpeed * t * 2 * boundaryExtentY;
         while (spheres[s].pos.y < -boundaryExtentY)
             spheres[s].pos.y += 2 * boundaryExtentY;
     }

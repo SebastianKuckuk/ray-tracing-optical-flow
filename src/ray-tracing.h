@@ -68,7 +68,6 @@ inline void createImage(size_t nx, size_t ny, double t, Color *__restrict__ img)
             auto direction = Vec3{px, py, -1};
 
             // rotate camera
-            constexpr auto camSpeed = 1.; // revolutions per second
             double alpha = 0., beta = t * camSpeed * 2. * M_PI, gamma = 0 * -0.125 * M_PI;
 
             origin = origin.rotate(alpha, beta, gamma);
