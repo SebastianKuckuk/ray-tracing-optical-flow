@@ -2,6 +2,10 @@
 
 MPI-parallel coupled application synthesising images using ray-tracing and calculating optical flow fields for them.
 
+![ray tracing](ray-tracing.gif)![optical flow](optical-flow.gif)![ray tracing](ray-tracing-bw.gif)
+
+Ray-tracing with color channels (left), optical flow field (middle) and monochromatic ray-tracing (right).
+
 Each mpi Rank performs a user-specified number of repetitions in which a user-specified number of images and their flow fields are computed.
 MPI communication takes place when images are sent from a given rank to its *left* neighbor.
 
@@ -84,3 +88,23 @@ likwid-mpirun -n 72 -g MEM_DP -m ../build/ray-tracing-optical-flow-base-prof 12 
 ```
 
 Options can be tuned for [`likwid-perfctr`](https://github.com/RRZE-HPC/likwid/wiki/likwid-perfctr#options) and [`likwid-mpirun`](https://github.com/RRZE-HPC/likwid/wiki/Likwid-Mpirun#options)
+
+## Tuning
+
+All computations assume a *left-hand* coordinate system, i.e. the y-axis points upwards.
+
+`regularization` in [optical-flow.h](src/optical-flow.h) controls the desired smoothness of the obtained flow field (higher values prescribe higher smoothness).
+
+The following variables/ defines can be found in [ray-tracing-util.h](src/ray-tracing-util.h):
+
+* `camSpeed` controls the camera rotation speed in revolutions per second; 0 means no movement
+* `sphereSpeed` controls the sphere speed in domain heights per second; 0 means spheres don't move
+* `boundaryExtentXZ` controls the extent of the initial domain populated with spheres in both directions (positive & negative) of the x- and z-axes
+* `boundaryExtentY` controls the extent of the initial domain populated with spheres in both directions (positive & negative); equals half of the total domain height
+* `USE_COLOR` defines if three color channels are used or only one (black and white)
+
+The `initSpheres` function in [ray-tracing-util.h](src/ray-tracing-util.h) controls the initial sphere placement.
+It tries to populate an hourglass-like shape and avoids contacts/ penetration between spheres.
+The number of spheres to be generated is set in [main.cpp](src/main.cpp) as `numSpheres`.
+
+The camera handling is implemented in the `createImage` function in [ray-tracing.h](src/ray-tracing.h).
