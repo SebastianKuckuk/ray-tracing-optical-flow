@@ -1,6 +1,7 @@
 import argparse
 import numpy as np
 import matplotlib.pyplot as plt
+from PIL import Image
 
 # Parse command-line arguments
 parser = argparse.ArgumentParser(description="Convert raw data to an image.")
@@ -54,7 +55,10 @@ else:
     raise Exception(f'Invalid scaling mode {args.scale}')
 
 # Create an image from the data array
-plt.imshow(data_array)
-plt.axis('off')  # Turn off axis labels
-plt.savefig(args.output, dpi=300, bbox_inches='tight', pad_inches=0.0)  # Save the image
+# plt.imshow(data_array)
+# plt.axis('off')  # Turn off axis labels
+# plt.savefig(args.output, dpi=300, bbox_inches='tight', pad_inches=0.0)  # Save the image
 # plt.show()
+
+img = Image.fromarray((data_array * 255).astype(np.uint8), mode='RGB')
+img.save(args.output)
