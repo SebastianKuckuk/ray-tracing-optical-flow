@@ -45,7 +45,7 @@ bool intersect(const Ray &ray, double &minDist, int &iHit) {
         double discr = b * b - 4 * a * c;
 
         if (discr >= 0.)
-            for (auto tHit: {(-b + sqrt(discr)) / (2. * a), (-b - sqrt(discr)) / (2. * a)})
+            for (auto tHit: {(-b + std::sqrt(discr)) / (2. * a), (-b - std::sqrt(discr)) / (2. * a)})
                 if (tHit >= minRayDist && tHit < minDist) {
                     hit = true;
                     iHit = i;

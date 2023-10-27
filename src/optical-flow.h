@@ -144,7 +144,7 @@ inline double resNorm(size_t nx, size_t ny,
         }
     }
 
-    return sqrt(norm);
+    return std::sqrt(norm);
 }
 
 
