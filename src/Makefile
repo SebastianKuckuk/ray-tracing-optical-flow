@@ -49,10 +49,10 @@ $(BUILD_DIR)/$(TEST_CASE)-omp-host: main.cpp ray-tracing.h ray-tracing-util.h in
 	mpicxx -O3 -march=native -std=c++17 -fopenmp -o $(BUILD_DIR)/$(TEST_CASE)-omp-host main.cpp
 
 $(BUILD_DIR)/$(TEST_CASE)-base-prof: main.cpp ray-tracing.h ray-tracing-util.h intersect.h image.h vec3.h optical-flow.h timer.h
-	mpicxx -O3 -march=native -std=c++17 -DLIKWID_PERFMON -I$(LIKWID_INCDIR) -L$(LIKWID_LIBDIR) -o $(BUILD_DIR)/$(TEST_CASE)-base main.cpp -llikwid
+	mpicxx -O3 -march=native -std=c++17 -DLIKWID_PERFMON -I$(LIKWID_INCDIR) -L$(LIKWID_LIBDIR) -o $(BUILD_DIR)/$(TEST_CASE)-base-prof main.cpp -llikwid
 
 $(BUILD_DIR)/$(TEST_CASE)-omp-host-prof: main.cpp ray-tracing.h ray-tracing-util.h intersect.h image.h vec3.h optical-flow.h timer.h
-	mpicxx -O3 -march=native -std=c++17 -DLIKWID_PERFMON -I$(LIKWID_INCDIR) -L$(LIKWID_LIBDIR) -fopenmp -o $(BUILD_DIR)/$(TEST_CASE)-omp-host main.cpp -llikwid
+	mpicxx -O3 -march=native -std=c++17 -DLIKWID_PERFMON -I$(LIKWID_INCDIR) -L$(LIKWID_LIBDIR) -fopenmp -o $(BUILD_DIR)/$(TEST_CASE)-omp-host-prof main.cpp -llikwid
 
 
 # aliases without build directory
