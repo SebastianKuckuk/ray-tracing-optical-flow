@@ -64,11 +64,11 @@ int main(int argc, char *argv[]) {
     auto nyRT = supersampling * nyOF;
 
     // allocate for ray tracer
-    auto img = new Color[nxRT * nyRT];
+    auto imgRT = new Color[nxRT * nyRT];
 
     // allocate for optical flow solver
-    auto img0 = new double[nxOF * nyOF];
-    auto img1 = new double[nxOF * nyOF];
+    auto imgOF_0 = new double[nxOF * nyOF];
+    auto imgOF_1 = new double[nxOF * nyOF];
 
     auto mgSolU = new double *[numLevels];
     auto mgSolV = new double *[numLevels];
@@ -119,13 +119,13 @@ int main(int argc, char *argv[]) {
             if (numTimeSteps == tIt && !(numReps - 1 == rep && numRanks - 1 == mpiRank)) {
                 timerMPIRecv.start();
                 {
-                    MPI_Recv(img, nxRT * nyRT * sizeof(Color) / sizeof(double), MPI_DOUBLE, (mpiRank + numRanks + 1) % numRanks, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+                    MPI_Recv(imgRT, nxRT * nyRT * sizeof(Color) / sizeof(double), MPI_DOUBLE, (mpiRank + numRanks + 1) % numRanks, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
                 }
                 timerMPIRecv.stop();
             } else {
                 timerRT.start();
                 {
-                    createImage(nxRT, nyRT, t, img);
+                    createImage(nxRT, nyRT, t, imgRT);
                 }
                 timerRT.stop();
             }
@@ -133,7 +133,7 @@ int main(int argc, char *argv[]) {
             if (0 == tIt && !(0 == mpiRank && 0 == rep)) {
                 timerMPISend.start();
                 {
-                    memcpy(mpiBuffer, img, nxRT * nyRT * sizeof(Color));
+                    memcpy(mpiBuffer, imgRT, nxRT * nyRT * sizeof(Color));
                     MPI_Isend(mpiBuffer, nxRT * nyRT * sizeof(Color) / sizeof(double), MPI_DOUBLE, (mpiRank + numRanks - 1) % numRanks, 0, MPI_COMM_WORLD, &mpiReq);
                 }
                 timerMPISend.stop();
@@ -141,15 +141,15 @@ int main(int argc, char *argv[]) {
 
             timerMap.start();
             {
-                mapImages(nxOF, nyOF, nxRT, img, img1, supersampling);
-                std::swap(img0, img1);
+                mapImages(nxOF, nyOF, nxRT, imgRT, imgOF_1, supersampling);
+                std::swap(imgOF_0, imgOF_1);
             }
             timerMap.stop();
 
             if (tIt > 0) {
                 timerOF.start();
                 {
-                    initGradientsAndRHS(nxOF, nyOF, dt, img0, img1, mgIxIx[numLevels - 1], mgIxIy[numLevels - 1], mgIyIy[numLevels - 1], mgRhsU[numLevels - 1], mgRhsV[numLevels - 1]);
+                    initGradientsAndRHS(nxOF, nyOF, dt, imgOF_0, imgOF_1, mgIxIx[numLevels - 1], mgIxIy[numLevels - 1], mgIyIy[numLevels - 1], mgRhsU[numLevels - 1], mgRhsV[numLevels - 1]);
                     for (auto level = numLevels - 1; level >= 1; --level)
                         coarsenOperator((1u << (level - 1)) + 2, (1u << (level - 1)) + 2, (1u << level) + 2, (1u << level) + 2,
                                         mgIxIx[level], mgIxIy[level], mgIyIy[level], mgIxIx[level - 1], mgIxIy[level - 1], mgIyIy[level - 1]);
@@ -176,7 +176,7 @@ int main(int argc, char *argv[]) {
                 if (tIt < numTimeSteps) {
                     std::stringstream filename;
                     filename << "../images/ray-tracing-" << std::setw(5) << std::setfill('0') << std::right << t / dt << ".raw";
-                    printImage(nxOF, nyOF, img0, filename.str());
+                    printImage(nxOF, nyOF, imgOF_0, filename.str());
                 }
                 if (tIt > 0) {
                     std::stringstream filename;
@@ -205,8 +205,8 @@ int main(int argc, char *argv[]) {
     delete[] mpiBuffer;
 
     // de-allocate optical flow solver
-    delete[] img0;
-    delete[] img1;
+    delete[] imgOF_0;
+    delete[] imgOF_1;
 
     for (auto ptr: {mgSolU, mgSolV, mgSolNewU, mgSolNewV,
                     mgResU, mgResV, mgRhsU, mgRhsV, mgIxIx,
@@ -217,7 +217,7 @@ int main(int argc, char *argv[]) {
     }
 
     // de-allocate ray tracer
-    delete[] img;
+    delete[] imgRT;
     free(spheres);
 
     MPI_Finalize();

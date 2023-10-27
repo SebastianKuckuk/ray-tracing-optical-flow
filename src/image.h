@@ -4,25 +4,25 @@
 #include <cstring>
 
 
-void mapImages(size_t nxOF, size_t nyOF, size_t nxRT, const Color *img, double *img0, size_t supersampling) {
+void mapImages(size_t nxOF, size_t nyOF, size_t nxRT, const Color *imgSrc, double *imgDest, size_t supersampling) {
 #pragma omp parallel for schedule (static) collapse(2)
     for (size_t j = 0; j < nyOF; ++j)
         for (size_t i = 0; i < nxOF; ++i) {
-            img0[j * nxOF + i] = 0;
+            imgDest[j * nxOF + i] = 0;
 
             for (size_t jOff = 0; jOff < supersampling; ++jOff) {
                 for (size_t iOff = 0; iOff < supersampling; ++iOff) {
 #ifdef USE_COLOR
-                    img0[j * nxOF + i] += 1. / 3. * (img[(supersampling * j + jOff) * nxRT + supersampling * i + iOff].x
-                                                     + img[(supersampling * j + jOff) * nxRT + supersampling * i + iOff].y
-                                                     + img[(supersampling * j + jOff) * nxRT + supersampling * i + iOff].z);
+                    imgDest[j * nxOF + i] += 1. / 3. * (imgSrc[(supersampling * j + jOff) * nxRT + supersampling * i + iOff].x
+                                                     + imgSrc[(supersampling * j + jOff) * nxRT + supersampling * i + iOff].y
+                                                     + imgSrc[(supersampling * j + jOff) * nxRT + supersampling * i + iOff].z);
 #else
-                    img0[j * nxOF + i] += img[(supersampling * j + jOff) * nxRT + supersampling * i + iOff];
+                    imgDest[j * nxOF + i] += imgSrc[(supersampling * j + jOff) * nxRT + supersampling * i + iOff];
 #endif
                 }
             }
 
-            img0[j * nxOF + i] /= supersampling * supersampling;
+            imgDest[j * nxOF + i] /= supersampling * supersampling;
         }
 }
 
