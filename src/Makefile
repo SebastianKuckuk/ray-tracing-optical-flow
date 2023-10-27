@@ -9,16 +9,16 @@ VIDEO_DIR = ../videos
 
 # default benchmark parameters
 
-NUM_MGLVL    = 12
+NUM_MGLVL    = 11
 NUM_MG       = 10
 SUPERSAMPLE  = 2
 DT           = 0.01
-NUM_TIMESTEP = 25
-NUM_MPI      = 4
-NUM_REP      = 4
-PRINT_IMG    = 1
+NUM_TIMESTEP = 4
+NUM_MPI      = 72
+NUM_REP      = 8
+PRINT_IMG    = 0
 
-NX			= 2048   # has to be 2 ** (NUM_MGLVL - 1)
+NX			= 1024   # has to be 2 ** (NUM_MGLVL - 1)
 NY			= $(NX)
 
 PARAMETERS = ${NUM_MGLVL} ${SUPERSAMPLE} ${NUM_MG} ${DT} ${NUM_TIMESTEP} ${NUM_REP} ${PRINT_IMG}

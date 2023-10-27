@@ -81,10 +81,10 @@ This is replaced with
 salloc --partition singlenode --nodes=1 --time 01:00:00 --constraint=hwperf
 
 # for serial measurements ...
-likwid-perfctr -g MEM_DP -C S0:0 -m ../build/ray-tracing-optical-flow-base-prof 12 2 10 0.005 4 12 0
+likwid-perfctr -g MEM_DP -C S0:0 -m ../build/ray-tracing-optical-flow-base-prof 11 2 10 0.01 10 1 0 > ../perf/prof-serial_11_2_10_0-01_10_1_0.txt
 
 # ... or for parallel execution
-likwid-mpirun -n 72 -g MEM_DP -m ../build/ray-tracing-optical-flow-base-prof 12 2 10 0.005 4 12 0
+likwid-mpirun -n 72 -g MEM_DP -m ../build/ray-tracing-optical-flow-base-prof 11 2 10 0.01 4 12 0 > ../perf/prof-mpi-72_11_2_10_0-01_4_12_0.txt
 ```
 
 Options can be tuned for [`likwid-perfctr`](https://github.com/RRZE-HPC/likwid/wiki/likwid-perfctr#options) and [`likwid-mpirun`](https://github.com/RRZE-HPC/likwid/wiki/Likwid-Mpirun#options)

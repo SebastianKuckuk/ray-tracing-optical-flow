@@ -1,0 +1,5 @@
+Timer ray-tracing      on rank   0 :  17535 ms,   1594 ms,   1461 ms,   2156 ms,  11 (total, mean, min, max, timings)
+Timer optical-flow     on rank   0 :   6153 ms,    615 ms,    609 ms,    626 ms,  10 (total, mean, min, max, timings)
+Timer map              on rank   0 :     55 ms,      5 ms,      4 ms,      5 ms,  11 (total, mean, min, max, timings)
+Timer mpi-send         on rank   0 :      0 ms,      0 ms,      0 ms,      0 ms,   0 (total, mean, min, max, timings)
+Timer mpi-recv         on rank   0 :      0 ms,      0 ms,      0 ms,      0 ms,   0 (total, mean, min, max, timings)
