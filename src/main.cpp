@@ -65,6 +65,7 @@ int main(int argc, char *argv[]) {
 
     // allocate for ray tracer
     auto imgRT = new Color[nxRT * nyRT];
+    auto imgPrintRT = new Color[nxOF * nyOF]; // image to print on (reduced) OF resolution
 
     // allocate for optical flow solver
     auto imgOF_0 = new double[nxOF * nyOF];
@@ -141,7 +142,7 @@ int main(int argc, char *argv[]) {
 
             timerMap.start();
             {
-                mapImages(nxOF, nyOF, nxRT, imgRT, imgOF_1, supersampling);
+                mapImageToDouble(nxOF, nyOF, nxRT, imgRT, imgOF_1, supersampling);
                 std::swap(imgOF_0, imgOF_1);
             }
             timerMap.stop();
@@ -174,9 +175,11 @@ int main(int argc, char *argv[]) {
             // print images
             if (printImages) {
                 if (tIt < numTimeSteps) {
+                    mapImageToColor(nxOF, nyOF, nxRT, imgRT, imgPrintRT, supersampling);
+
                     std::stringstream filename;
                     filename << "../images/ray-tracing-" << std::setw(5) << std::setfill('0') << std::right << t / dt << ".raw";
-                    printImage(nxOF, nyOF, imgOF_0, filename.str());
+                    printImage(nxOF, nyOF, imgPrintRT, filename.str());
                 }
                 if (tIt > 0) {
                     std::stringstream filename;
@@ -218,6 +221,8 @@ int main(int argc, char *argv[]) {
 
     // de-allocate ray tracer
     delete[] imgRT;
+    delete[] imgPrintRT;
+
     free(spheres);
 
     MPI_Finalize();
