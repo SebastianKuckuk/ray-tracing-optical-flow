@@ -62,10 +62,10 @@ inline void applyBC(size_t nx, size_t ny, double *__restrict__ u, double *__rest
 
 
 inline void smooth(size_t nx, size_t ny, double omega,
-                   const double *const __restrict__ u, const double *const __restrict__ v,
-                   double *const __restrict__ uNew, double *const __restrict__ vNew,
-                   const double *const __restrict__ ixix, const double *const __restrict__ ixiy, const double *const __restrict__ iyiy,
-                   const double *const __restrict__ uRHS, const double *const __restrict__ vRHS) {
+                   const double *__restrict__ u, const double *__restrict__ v,
+                   double *__restrict__ uNew, double *__restrict__ vNew,
+                   const double *__restrict__ ixix, const double *__restrict__ ixiy, const double *__restrict__ iyiy,
+                   const double *__restrict__ uRHS, const double *__restrict__ vRHS) {
 
     auto gridWidthSqInv = ((nx - 2.) * (nx - 2.));
 
@@ -89,10 +89,10 @@ inline void smooth(size_t nx, size_t ny, double omega,
 
 
 inline void updateRes(size_t nx, size_t ny,
-                      const double *const __restrict__ u, const double *const __restrict__ v,
-                      double *const __restrict__ uRes, double *const __restrict__ vRes,
-                      const double *const __restrict__ ixix, const double *const __restrict__ ixiy, const double *const __restrict__ iyiy,
-                      const double *const __restrict__ uRHS, const double *const __restrict__ vRHS) {
+                      const double *__restrict__ u, const double *__restrict__ v,
+                      double *__restrict__ uRes, double *__restrict__ vRes,
+                      const double *__restrict__ ixix, const double *__restrict__ ixiy, const double *__restrict__ iyiy,
+                      const double *__restrict__ uRHS, const double *__restrict__ vRHS) {
 
     auto gridWidthSqInv = ((nx - 2.) * (nx - 2.));
 
@@ -116,9 +116,9 @@ inline void updateRes(size_t nx, size_t ny,
 
 
 inline double resNorm(size_t nx, size_t ny,
-                      const double *const __restrict__ u, const double *const __restrict__ v,
-                      const double *const __restrict__ ixix, const double *const __restrict__ ixiy, const double *const __restrict__ iyiy,
-                      const double *const __restrict__ uRHS, const double *const __restrict__ vRHS) {
+                      const double *__restrict__ u, const double *__restrict__ v,
+                      const double *__restrict__ ixix, const double *__restrict__ ixiy, const double *__restrict__ iyiy,
+                      const double *__restrict__ uRHS, const double *__restrict__ vRHS) {
 
     auto gridWidthSqInv = ((nx - 2.) * (nx - 2.));
 
@@ -173,7 +173,7 @@ inline void updateCoarserRhs(size_t nxCoarser, size_t nyCoarser, size_t nx, size
 
 
 inline void coarsenOperator(size_t nxCoarser, size_t nyCoarser, size_t nx, size_t ny,
-                            const double *const __restrict__ ixix, const double *const __restrict__ ixiy, const double *const __restrict__ iyiy,
+                            const double *__restrict__ ixix, const double *__restrict__ ixiy, const double *__restrict__ iyiy,
                             double *__restrict__ ixixCoarser, double *__restrict__ ixiyCoarser, double *__restrict__ iyiyCoarser) {
 
     auto scale = 1.;
@@ -221,11 +221,11 @@ inline void correction(size_t nx, size_t ny, size_t nxCoarser, size_t nyCoarser,
 
 
 /*inline*/ void multigrid(size_t level, double omega,
-                          double **__restrict__ rhsU, double **__restrict__ rhsV,
-                          double **__restrict__ solU, double **__restrict__ solV,
-                          double **__restrict__ solNewU, double **__restrict__ solNewV,
-                          double **__restrict__ resU, double **__restrict__ resV,
-                          double **__restrict__ ixix, double **__restrict__ ixiy, double **__restrict__ iyiy) {
+                          double *__restrict__ *__restrict__ rhsU, double *__restrict__ *__restrict__ rhsV,
+                          double *__restrict__ *__restrict__ solU, double *__restrict__ *__restrict__ solV,
+                          double *__restrict__ *__restrict__ solNewU, double *__restrict__ *__restrict__ solNewV,
+                          double *__restrict__ *__restrict__ resU, double *__restrict__ *__restrict__ resV,
+                          double *__restrict__ *__restrict__ ixix, double *__restrict__ *__restrict__ ixiy, double **__restrict__ iyiy) {
     auto nx = (1u << level) + 2;
     auto ny = (1u << level) + 2;
 
