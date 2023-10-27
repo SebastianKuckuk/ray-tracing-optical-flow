@@ -101,18 +101,19 @@ int main(int argc, char *argv[]) {
     auto mpiBuffer = new unsigned char[nxRT * nyRT * sizeof(Color) / sizeof(double)];
 
     // allocate spheres
-    numSpheres = 1 + 1 + 20; // one large bottom sphere, one center sphere and multiple orbiting spheres
+    numSpheres = 48;
     spheres = static_cast<Sphere *>(malloc(numSpheres * sizeof(Sphere)));
+    initSpheres();
+    MPI_Bcast(spheres, numSpheres * (sizeof(Sphere) / sizeof(double)), MPI_DOUBLE, 0, MPI_COMM_WORLD);
 
     // prepare timers
     Timer timerRT("ray-tracing"), timerMap("map"), timerOF("optical-flow"), timerMPISend("mpi-send"), timerMPIRecv("mpi-recv");
-    MPI_Barrier(MPI_COMM_WORLD);
 
     for (size_t rep = 0; rep < numReps; ++rep) {
         for (size_t tIt = 0; tIt < numTimeSteps + 1; ++tIt) {
             auto t = tStart + tIt * dt + rep * dt * numTimeSteps * numRanks;
 
-            initSpheres(t);
+            updateSpherePositions(t);
 
             // measurement
             if (numTimeSteps == tIt && !(numReps - 1 == rep && numRanks - 1 == mpiRank)) {

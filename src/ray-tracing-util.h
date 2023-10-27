@@ -2,6 +2,8 @@
 
 #include <iostream>
 #include <cmath>
+#include <algorithm>
+#include <random>
 
 #include "vec3.h"
 
@@ -22,7 +24,8 @@ using Color = double;
 
 
 struct Sphere {
-    Vec3 pos;
+    Vec3 initPos;   // initial position before moving
+    Vec3 pos;       // current position
     double rSq;     // radius squared
 
     Color diffuseColor;
@@ -31,40 +34,54 @@ struct Sphere {
     Color reflectionColor;
 };
 
-//Sphere spheres[] = {
-//        {{0.,        0.,        -160.},    128 * 128.,            {0.8}, {0.2}, 16, {0.8}},
-//        {{0.,        0.,        0.},       0.4 * 0.4,             {0.8}, {0.2}, 8,  {0.2}},
-//        {{0.272166,  0.272166,  0.544331}, (1. / 6.) * (1. / 6.), {0.2}, {0.8}, 32, {0.8}},
-//        {{0.643951,  0.172546,  0.},       (1. / 6.) * (1. / 6.), {0.2}, {0.8}, 32, {0.8}},
-//        {{0.172546,  0.643951,  0.},       (1. / 6.) * (1. / 6.), {0.2}, {0.8}, 32, {0.8}},
-//        {{-0.371785, 0.099620,  0.544331}, (1. / 6.) * (1. / 6.), {0.2}, {0.8}, 32, {0.8}},
-//        {{-0.471405, 0.471405,  0.},       (1. / 6.) * (1. / 6.), {0.2}, {0.8}, 32, {0.8}},
-//        {{-0.643951, -0.172546, 0.},       (1. / 6.) * (1. / 6.), {0.2}, {0.8}, 32, {0.8}},
-//        {{0.099620,  -0.371785, 0.544331}, (1. / 6.) * (1. / 6.), {0.2}, {0.8}, 32, {0.8}},
-//        {{-0.172546, -0.643951, 0.},       (1. / 6.) * (1. / 6.), {0.2}, {0.8}, 32, {0.8}},
-//        {{0.471405,  -0.471405, 0.},       (1. / 6.) * (1. / 6.), {0.2}, {0.8}, 32, {0.8}}
-//};
-//
-//constexpr auto numSpheres = sizeof(spheres) / sizeof(Sphere);
 
 Sphere *spheres;
 int numSpheres;
 
+constexpr auto boundaryExtentXZ = 2.; // extent in each direction (positive & negative) in the x- and z-axes
+constexpr auto boundaryExtentY = 2 * boundaryExtentXZ;
 
-inline void initSpheres(double t) {
-    spheres[0] = {{0., 0., -130.}, 128 * 128., Color{0.8}, Color{0.2}, 16, Color{0.8}};
-    spheres[1] = {{0., 0., 0.}, 0.5 * 0.5, Color{0.8}, Color{0.2}, 8, Color{0.2}};
 
-    for (auto i = 2; i < numSpheres; ++i) {
-        auto r = 1. / 8.;
+inline void initSpheres() {
+    numSpheres = 48;
+    spheres = static_cast<Sphere *>(malloc(numSpheres * sizeof(Sphere)));
+    std::mt19937 randGen(0);// constant seed
+    std::uniform_real_distribution<> posXZDistribution(-boundaryExtentXZ, boundaryExtentXZ);
+    std::uniform_real_distribution<> posYDistribution(-boundaryExtentY, boundaryExtentY);
+    std::uniform_real_distribution<> rDistribution(0.3, 0.6);
+    for (auto s = 0; s < numSpheres; ++s) {
+        auto pos = Vec3{posXZDistribution(randGen), posYDistribution(randGen), posXZDistribution(randGen)};
+        auto r = rDistribution(randGen);
 
-        auto alpha = 2. * M_PI * (-(t + (double) (i - 2) / (numSpheres - 2)));
-        auto beta = 2. * M_PI * ((i - 2 >= (numSpheres - 2) / 2 ? -1 : 1) / 16.);
-        auto gamma = 2. * M_PI * (0.);
+        auto invalidPos = false;
 
-        auto pos = Vec3{sqrt(spheres[1].rSq) + ((numSpheres - 2) / 4.) * r, 0, 0}.rotate(alpha, beta, gamma);
+        // check for side walls
+        if (std::sqrt(pos.x * pos.x + pos.z * pos.z) + r > boundaryExtentXZ * (0.625 + 0.375 * sin((pos.y / boundaryExtentY + 0.5) * M_PI)))
+            invalidPos = true;
 
-        spheres[i] = {pos, r * r, Color{0.2}, Color{0.8}, 32, Color{0.8}};
+        // check for collisions with other particles; also check periodic mirror particle positions
+        for (auto sCmp = 0; sCmp < s && !invalidPos; ++sCmp)
+            if (std::min({
+                                 (spheres[sCmp].pos - pos).magnitude(),
+                                 (spheres[sCmp].pos - pos + Vec3{0., 2 * boundaryExtentY, 0.}).magnitude(),
+                                 (spheres[sCmp].pos - pos + Vec3{0., -2 * boundaryExtentY, 0.}).magnitude()
+                         }) < 1.25 * (std::sqrt(spheres[sCmp].rSq) + r))
+                invalidPos = true;
+
+        if (invalidPos) {
+            --s;
+            continue;
+        }
+
+        spheres[s] = {pos, pos, r * r, Color{0.5}, Color{0.8}, 32, Color{0.8}};
+    }
+}
+
+inline void updateSpherePositions(double t) {
+    for (auto s = 0; s < numSpheres; ++s) {
+        spheres[s].pos.y = spheres[s].initPos.y - t * 2 * boundaryExtentY;
+        while (spheres[s].pos.y < -boundaryExtentY)
+            spheres[s].pos.y += 2 * boundaryExtentY;
     }
 }
 
@@ -77,24 +94,15 @@ struct Light {
 
 #ifdef USE_COLOR
 Light lights[] = {
-//        {{4.,  3.,  2.}, {1., 0., 0.}},
-//        {{1.,  -4., 4.}, {0., 1., 0.}},
-//        {{-3., 1.,  5.}, {0., 0., 1.}}
-        {{-16., -16., 16.}, {1., 0., 0.}},
-        {{16.,  -16., 16.}, {0., 1., 0.}},
-        {{0.,   16.,  16.}, {0., 0., 1.}}
-//        {{-16., -16., 16.}, {1., 1., 1.}},
-//        {{16.,  -16., 16.}, {1., 1., 1.}},
-//        {{0.,   16.,  16.}, {1., 1., 1.}}
+        {{-16., 0., -16.}, {1.,  0.5, 0.5}},
+        {{16.,  0., -16.}, {0.5, 1.,  0.5}},
+        {{0.,   0., 16.},  {0.5, 0.5, 1.}}
 };
 #else
 Light lights[] = {
-//        {{4.,  3.,  2.}, 1./3.},
-//        {{1.,  -4., 4.}, 1./3.},
-//        {{-3., 1.,  5.}, 1./3.}
-        {{-16., -16., 16.}, 1. / 3.},
-        {{16.,  -16., 16.}, 1. / 3.},
-        {{0.,   16.,  16.}, 1. / 3.}
+        {{-16., 0., -16.}, 1. / 3.},
+        {{16.,  0., -16.}, 1. / 3.},
+        {{0.,   0., 16.},  1. / 3.}
 };
 #endif
 
