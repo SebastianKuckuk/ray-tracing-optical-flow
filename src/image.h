@@ -71,13 +71,25 @@ void printImage(size_t nx, size_t ny, const double *const imgU, const double *co
     std::ofstream outStream(filename, std::iostream::binary);
     for (size_t j = 1; j < ny - 1; ++j) {
         for (size_t i = 1; i < nx - 1; ++i) {
-            float c;
-            c = (float) (1. * imgU[j * nx + i] + 0.);
-            outStream.write(reinterpret_cast<const char *>(&c), sizeof(float));
-            c = (float) (1. * imgV[j * nx + i] + 0.);
-            outStream.write(reinterpret_cast<const char *>(&c), sizeof(float));
-            c = (float) (0.);
-            outStream.write(reinterpret_cast<const char *>(&c), sizeof(float));
+            float r, g, b;
+            // version 1, u and v on separate color channels, 0 on the remaining
+            //r = (float) imgU[j * nx + i];
+            //g = (float) imgV[j * nx + i];
+            //b = (float) 0;
+
+            // version 2, positive and negative components of v on separate channels, u on remaining
+            //r = (float) std::max(0., imgV[j * nx + i]);
+            //g = (float) std::max(0., -imgV[j * nx + i]);
+            //b = (float) (imgU[j * nx + i]);
+
+            // version 3, u and v on separate channels, magnitude on remaining
+            r = (float) (imgU[j * nx + i]);
+            g = (float) (imgV[j * nx + i]);
+            b = (float) std::sqrt(imgU[j * nx + i] * imgU[j * nx + i] + imgV[j * nx + i] * imgV[j * nx + i]);
+
+            outStream.write(reinterpret_cast<const char *>(&r), sizeof(float));
+            outStream.write(reinterpret_cast<const char *>(&g), sizeof(float));
+            outStream.write(reinterpret_cast<const char *>(&b), sizeof(float));
         }
     }
 
